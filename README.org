@@ -1,0 +1,103 @@
+#+TITLE: callnum.el - Sort library call numbers
+#+AUTHOR: Joshua Lambert <jlambert@missouristate.edu>
+
+* Overview
+This GNU Emacs package provides functions to create zero padded, sortable, call number (shelf mark) strings for [[https://en.wikipedia.org/wiki/Library][library]] [[https://en.wikipedia.org/wiki/Library_classification][classification systems]]. Those strings can then be sorted with Emacs' ~sort-lines~ function.
+
+#+begin_example
+S 1.71:34
+#+end_example
+
+to
+
+#+begin_example
+S00010071!0034,S 1.71:34
+#+end_example
+
+* Installation
+** Package-vc
+For the latest version, place the following code in your Emacs init.el file.
+
+#+begin_src emacs-lisp
+;; Requires Emacs 29 and git
+(unless (package-installed-p 'callnum)
+   (package-vc-install "https://github.com/distichum/callnum.el" nil nil 'callnum))
+(unless (package-installed-p 'callnum)
+   (package-vc-install "https://github.com/distichum/callnum.el"))
+
+(require callnum)
+#+end_src
+** Manually
+Add callnum.el to your load-path and require. Something like
+#+begin_src emacs-lisp
+(add-to-list 'load-path "path/to/callnum.el")
+(require 'callnum)
+#+end_src
+* Making sortable call numbers
+To create a padded call number string, use ~callnum-lc-make-region-sortable~ or ~callnum-sudoc-make-region-sortable~. These functions work on the current line or the active region, if there is one. Unless the user provides a prefix argument, the function assumes the first text on the line is the call number. A prefix argument will cause the function to look in another "field" as separated by ~callnum-separator~, which is set to a comma by default.
+
+Callnum.el assumes a csv-like file structure but is not complex enough to understand text qualifiers (the quotation marks that encapsulate some fields in a csv file). It will understand any comma as the end of a field. For that reason, it is best to place or move the call number field to the first text on a line. [[https://elpa.gnu.org/packages/csv-mode.html][CSV Mode]] can do this and works very well with callnum.el.
+
+Furthermore, callnum.el will always place the padded call number string at the beginning of a line, followed by a comma. This allows the user to run the fast =sort-lines=
+
+#+begin_example
+S00010071!0034,S 1.71:34
+#+end_example
+
+To sort the lines, use Emacs' ~sort-lines~, ~csv-sort-fields~, or some other sorting function to sort the lines.
+
+To delete the padded strings from the beginning of the lines, use ~replace-regexp~ ="^.*, *"= =""= or ~csv-kill-fields~.
+
+Do note that these functions are not perfect and the function will cause an error for some call numbers. Specifically, if there is a call number without a period separating the classification part from the cutter, the function will stop.
+* Normalizing call numbers
+There is one function that can help normalize call numbers. ~callnum-sudoc-paste-spaced~ corrects some spacing issues in SuDoc call numbers. There is not normalization of LC call numbers at this point.
+* Dividing call numbers in callnum.el
+The following describes what callnum.el recognizes as a call number. Unless you plan to edit callnum.el or write your own call number software, you can ignore the following.
+** LC
+Library of Congress call number terms used below, and in callnum.el, follow terminology Wetherington and Wagner used in, [[https://ital.corejournals.org/index.php/ital/article/view/11585][A Comprehensive Approach to Algorithmic Machine Sorting of Library of Congress Call Numbers]].
+
+LC call numbers may have three main parts, the classification, the cutters, and the specification. Those may each be divided into other parts. Following are the parts recognized by callnum.el, as shown in a contrived call number. (I have never seen a call number this complex, but I have seen each of the indicated parts. This is a worst case scenario.)
+
+KWX1234.1234567 1994 1101st.D38ax 1990 S45bc 2020 J91xd 2001 vol.IV no.III - vol.7 no.2
+
+1. Classification: KWX1234.1234567 1994 1101st
+   1. Class/subclass: KWX
+   2. Caption number integer part: 1234
+   3. Caption number decimal part: 1234567
+   4. Caption date: 1994
+   5. Caption ordinal: 1101
+   6. Caption ordinal indicator: st
+2. Cutter: D38ax 1990 S45bc 2020 J91xd 2001
+   1. Cutter 1
+      1. D
+      2. 38
+      3. ax
+      4. 1990
+   2. Cutter 2
+      1. S
+      2. 45
+      3. bc
+      4. 2020
+   3. Cutter 3
+      1. J
+      2. 91
+      3. xd
+      4. 2001
+3. Specification: vol.IV no.III - vol.7 no.2
+
+The specification is the "everything else" section, a free text field. It does not strictuly follow the definition given by Wetherington and Wagner. There is a regex in callnum.el to help sort it, but everything that previous regexes don't understand, gets placed here. Whether the padding helps with sorting depends on the consistency of those call numbers.
+
+Other specification examples may look like the examples below. I do not claim that these are correct based on any rules, only that I have seen them in call numbers and that any computer program that sorts call numbers must handle them somehow. There are abbreviations from various languages (usually English, German, Latin, French...) in the specification and the most complex or unusual are often music related. Once in a while, there will be normal cutter numbers but with roman numerals. callnum.el does not try to interpret those and considers them part of the specification.
+- vol.6,pt.1 vol.1
+- Cat.6
+- H.XVIII.11 .E8 1931
+- Ab.3 Rh.A Bd.8 t.1
+- Suppl.
+- 1954- 2007 works doc
+- HWV430 1965
+- TWV41:f1 1960
+** SuDoc
+The [[https://www.fdlp.gov/cataloging-and-classification/classification-guidelines/class-stems][Superintendent of Documents Classification Guidelines]] explain how SuDoc numbers should be formed. In the SuDoc classification, all numbers are considered whole numbers and can be left padded. Every part of the call number must be separated by a separating punctuation character or a space. Any period, also known as a full stop, is considered a separating punctuation character.
+
+The result of these rules is that the padding algorithm only has to detect a change in [[https://www.gnu.org/software/emacs/manual/html_node/elisp/Char-Classes.html][character class]] and the end of a call number part to know how to split a call number. It replaces the colon with an exclamation point to give a visual separator and make the padded string more readable. Only numbered parts need to be padded and the second of two consecutive alphabetic parts (H.HRG) need to be padded.
+
