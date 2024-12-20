@@ -104,6 +104,77 @@ CALLNUM-LC-MAKE-REGION-SORTABLE functions."
 
 
 ;;; Helper functions
+(defun callnum-regex-result-list (string regex)
+  "Return the list of all regex matches from a string.
+
+The result is a list which contains the string from each of the
+match groups. STRING is any string to which a regex will be
+applied. REGEX is the applied regular expression."
+  (when string
+    (let ((execute-regex (string-match regex string)) ;; Stores match data.
+	  (n-matches (1- (/ (length (match-data)) 2))))
+      (if execute-regex
+	  (cdr (mapcar (lambda (i) (match-string i string)) ;; Retrieves match data.
+		       (number-sequence 0 n-matches)))))))
+
+(defun callnum-named-alist (callnum-part-list part-alist)
+  "Create a named association list of call number parts.
+
+The CALLNUM-PART-LIST is a list of call number parts from
+CALLNUM-REGEX-RESULT-LIST. PART-ALIST should be one of the
+defined variables named CALLNUM-*-ALIST where the asterisk is the
+name of a library classification."
+  (let* ((part-list callnum-part-list)
+	 (pad-alist part-alist)
+	 (named-alist nil))
+    (while pad-alist
+      (setq named-alist
+	    (append named-alist
+		    (list (list (car (car pad-alist))
+				(pop part-list)
+				(cadr (pop pad-alist)))))))
+    (append named-alist (list (list "left-overs" (pop part-list))))))
+
+(defun callnum-string-pad (str len char direction)
+  "Pad a string with a specific character.
+
+STR is the string to pad. LEN is the length of the final created
+string, including padding. CHAR is the padding character.
+DIRECTION determines whether to pad left or right. If DIRECTION
+is t, pad left. If nil, pad right. When providing arguments for
+CHAR, it must be preceeded by a '?' unless you know the Emacs
+chararcter number and use that instead. If LEN is less than STR,
+then it will automatically be changed to the length of STR."
+  (let ((len2 (if (< len (length str))
+		  (length str)
+		len)))
+    (if direction
+	(store-substring (make-string len2 char) (- len2 (length str)) str)
+      (store-substring (make-string len2 char) 0 str))))
+
+(defun callnum-pad-concat (callnum-alist)
+  "Pad the call number parts of a named alist.
+
+CALLNUM-ALIST is the alist which comes from CALLNUM-NAMED-ALIST.
+The result of this function is a padded string."
+  (let* ((call-alist callnum-alist)
+	 (new-str nil)
+	 (part nil)
+	 (pad-spec nil))
+    (while (and call-alist
+		(not (string-equal (caar call-alist)
+				   "specification")))
+      (setq part (pop call-alist))
+      (setq pad-spec (caddr part))
+      (if (cadr part)
+	  (setq new-str (concat new-str
+				(callnum-string-pad (cadr part)
+						    (car pad-spec)
+						    (cadr pad-spec)
+						    (caddr pad-spec))))))
+    (setq new-str (concat new-str (cadar call-alist)))
+    new-str))
+
 (defun callnum--field-bounds (&optional field-num)
   "Find the start and end position of a field in a buffer.
 This assumes the text is a csv buffer. CSV-mode not required.
@@ -196,23 +267,6 @@ is the field number in which to find the call number."
 ;; (benchmark-run (dotimes (i 10000)
 ;; 		 (callnum-sudoc-pad-concat
 ;; 		  (callnum-sudoc-divide sudoc-sample-callnum))))
-
-(defun callnum-string-pad (str len char direction)
-  "Pad a string with a specific character.
-
-STR is the string to pad. LEN is the length of the final created
-string, including padding. CHAR is the padding character.
-DIRECTION determines whether to pad left or right. If DIRECTION
-is t, pad left. If nil, pad right. When providing arguments for
-CHAR, it must be preceeded by a '?' unless you know the Emacs
-chararcter number and use that instead. If LEN is less than STR,
-then it will automatically be changed to the length of STR."
-  (let ((len2 (if (< len (length str))
-		  (length str)
-		len)))
-    (if direction
-	(store-substring (make-string len2 char) (- len2 (length str)) str)
-      (store-substring (make-string len2 char) 0 str))))
 
 
 ;;; SuDoc functions
@@ -847,60 +901,6 @@ in CALLNUM-DEWEY-RX.")
       (? space
 	 (group (* not-newline))))
   "Regex that matches Dewey parts.")
-
-(defun callnum-regex-result-list (string regex)
-  "Return the list of all regex matches from a string.
-
-The result is a list which contains the string from each of the
-match groups. STRING is any string to which a regex will be
-applied. REGEX is the applied regular expression."
-  (when string
-    (let ((execute-regex (string-match regex string)) ;; Stores match data.
-	  (n-matches (1- (/ (length (match-data)) 2))))
-      (if execute-regex
-	  (cdr (mapcar (lambda (i) (match-string i string)) ;; Retrieves match data.
-		       (number-sequence 0 n-matches)))))))
-
-(defun callnum-named-alist (callnum-part-list part-alist)
-  "Create a named association list of call number parts.
-
-The CALLNUM-PART-LIST is a list of call number parts from
-CALLNUM-REGEX-RESULT-LIST. PART-ALIST should be one of the
-defined variables named CALLNUM-*-ALIST where the asterisk is the
-name of a library classification."
-  (let* ((part-list callnum-part-list)
-	 (pad-alist part-alist)
-	 (named-alist nil))
-    (while pad-alist
-      (setq named-alist
-	    (append named-alist
-		    (list (list (car (car pad-alist))
-				(pop part-list)
-				(cadr (pop pad-alist)))))))
-    (append named-alist (list (list "left-overs" (pop part-list))))))
-
-(defun callnum-pad-concat (callnum-alist)
-  "Pad the call number parts of a named alist.
-
-CALLNUM-ALIST is the alist which comes from CALLNUM-NAMED-ALIST.
-The result of this function is a padded string."
-  (let* ((call-alist callnum-alist)
-	 (new-str nil)
-	 (part nil)
-	 (pad-spec nil))
-    (while (and call-alist
-		(not (string-equal (caar call-alist)
-				   "specification")))
-      (setq part (pop call-alist))
-      (setq pad-spec (caddr part))
-      (if (cadr part)
-	  (setq new-str (concat new-str
-				(callnum-string-pad (cadr part)
-						    (car pad-spec)
-						    (cadr pad-spec)
-						    (caddr pad-spec))))))
-    (setq new-str (concat new-str (cadar call-alist)))
-    new-str))
 
 (defun callnum-dewey-make-region-sortable (&optional field-num beg end)
   "Add a padded LC call number to each line in the region.
