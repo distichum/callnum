@@ -7,7 +7,7 @@
 ;; Created: 20 Dec 2024
 ;; Version: 0.2
 ;; Keywords: tools, convenience, sorting
-;; URL: https://github.com/distichum/callnum
+;; URL: https://some.url.somewhere
 ;; Package-Requires: ((emacs "25.2"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -189,7 +189,7 @@ is the field number in which to find the call number."
 	  (goto-char (line-beginning-position))
           (insert (upcase (funcall function-to-use
 				   (callnum--get-callnum-from-line field-num))))
-	  (insert callnum-separator)
+	  (insert callnum-padded-separator)
           (forward-line))))))
 
 ;; Benchmarking tests.
@@ -197,6 +197,7 @@ is the field number in which to find the call number."
 ;; 		 (callnum-sudoc-pad-concat
 ;; 		  (callnum-sudoc-divide sudoc-sample-callnum))))
 
+
 (defun callnum-string-pad (str len char direction)
   "Pad a string with a specific character.
 
@@ -214,7 +215,6 @@ then it will automatically be changed to the length of STR."
 	(store-substring (make-string len2 char) (- len2 (length str)) str)
       (store-substring (make-string len2 char) 0 str))))
 
-
 ;;; SuDoc functions
 ;; Terminology related to the United States Superintendent of
 ;; Documents comes from the following FDLP document.
@@ -618,20 +618,18 @@ Create a named alist where each value is a list that includes the
 call number part as a string and the padding information. All of
 the information is now available to create a padded string.
 CALLNUM is the call number."
-  (let* ((class-alist (callnum-lc-named-alist
-		       (callnum-lc-regex-result-list callnum
-						     callnum-lc-class-regex)
-		       callnum-lc-class-alist))
+  (let* ((class-alist (callnum-lc-named-alist (callnum-lc-regex-result-list callnum
+									    callnum-lc-class-regex)
+					      callnum-lc-class-alist))
 	 ;; If the class string does not match, try to normalize the call
 	 ;; number. The normalize function will rerun callnum-lc-named-alist.
 	 (class-alist (if (not (car (cdr (car class-alist))))
 			  (callnum-lc-normalize-callnum callnum)
 			class-alist))
-	 (cutter-alist (callnum-lc-named-alist
-			(callnum-lc-regex-result-list (cadar
-						       (last class-alist))
-						      callnum-lc-cutter-regex)
-			callnum-lc-cutter-alist))
+	 (cutter-alist (callnum-lc-named-alist (callnum-lc-regex-result-list (cadar
+									      (last class-alist))
+									     callnum-lc-cutter-regex)
+					       callnum-lc-cutter-alist))
 	 ;; Eliminate all punctuation and spacing in the specification.
 	 (spec-string (if (cadar (last cutter-alist))
 			  (replace-regexp-in-string
@@ -654,10 +652,9 @@ Create a named alist where each value is a list that includes the
 call number part as a string and the padding information. All of
 the information is now available to create a padded string.
 CALLNUM is the call number."
-  (let* ((class-alist (callnum-lc-named-alist
-		       (callnum-lc-regex-result-list callnum
-						     callnum-lc-class-regex)
-		       callnum-lc-class-alist))
+  (let* ((class-alist (callnum-lc-named-alist (callnum-lc-regex-result-list callnum
+									    callnum-lc-class-regex)
+					      callnum-lc-class-alist))
 	 ;; If the class string does not match, try to normalize the call
 	 ;; number. The normalize function will rerun callnum-lc-named-alist.
 	 (class-alist (if (not (car (cdr (car class-alist))))
@@ -725,8 +722,8 @@ CALLNUM is the call number."
 (defun callnum-lc-pad-concat (callnum-alist)
   "Pad the call number parts of a named alist.
 
-CALLNUM-ALIST is the alist which comes from CALLNUM-LC-ALL-PARTS.
-The result of this function is a string."
+CALLNUM-ALIST is the alist which comes from LC-ALL-PARTS. The
+result of this function is a string."
   (let* ((call-alist callnum-alist)
 	 (new-str nil)
 	 (part nil)
@@ -786,147 +783,6 @@ Interactively, BEG and END are the region."
     (callnum--act-on-region-by-line #'bad-callnum field-num beg end)))
 
 
-;;; Dewey functions
-(defconst callnum-dewey-examples
-  (list "535.6 L661c" "398.24 An22u 2010" "439.1 Se81c" "398.21 G8827kE 2012" "523.43 B4173t  " "373.18 C189b" "421.1 B2749e" "752 H3678c" "948.022 T767v" "956.7 H278i" "599.668 J2548r" "926.415 C42064c" "636.9676 So126e" "523.7 M6191w  " "363.7382 W7345o" "927.41 On29w" "578.4 R928an" "928.1 K928k 2023" "398.208996 M1751w" "621.8 Sch79r" "362.42 H36c" "811.6 B2646g" "363.179 B648m" "929.56 Z42w" "395.5 D673ca" "398.209667 C4516t" "741.5 M132u 1994" "362.734 R7468i" "928.61 AL547a" "811.54 M79m" "927.8892 M35a" "398.2 Sh557t" "593.6 C684o" "811.008 Ex87" "927.89 Sa232c" "940.5318 Sh42i 2023" "811.6 R7273m" "938 T416g" "513.212 W7266s" "927.69 P84t")
-  "A list of unusual SuDoc call numbers.
-These call numbers give an idea of the diversity of strings that
-callnum.el must handle.")
-
-(defvar callnum-dewey-alist
-  (list
-   (list "dewey-integer" (list 3 ?0 t))
-   (list "decimal-separator" (list 1 ?! nil))
-   (list "dewey-decimal" (list 10 ?0 nil))
-   ;; This does nothing but leave the space for readability.
-   (list "visual-separator" (list 0 ?! nil))
-   (list "cutter-one" (list 12 ?0 nil)) ;; 12 spaces required for some MSU cutters.
-   (list "cutter-one-date" (list 4 ?0 nil))
-   (list "cutter-two" (list 12 ?0 nil))
-   (list "cutter-two-date" (list 4 ?0 nil))
-   (list "cutter-three" (list 12 ?0 nil))
-   (list "cutter-three-date" (list 4 ?0 nil))
-   (list "specification" (list 10 ?0 nil))) ;; This probably needs to exceed 10.
-  "Defines the padding requirements for call number parts.
-
-Change this varible if the padding amounts do not meet your
-needs. In (list 3 ?0 t), the ‘3’ specifies total padding. The
-‘?0’ is the padding character. The question mark is required in
-front of any character but is not a padding character. The t
-specifies to pad left. nil pads right.
-
-The padding is typically zero and will sort before any other
-alphanumeric character, assuming sort ASCII order. The number of
-named lists here must correspond to the number of capture groups
-in CALLNUM-DEWEY-RX.")
-
-(defvar callnum-dewey-rx
-  (rx bol
-      ;; Dewey classification
-      (= 1
-	 (group (= 3 digit))
-	 (group (? "."))
-	 (group (** 0 10 digit)))
-      (? (group space)) ;; Space saved for visual separator of padded string.
-      ;; Cutter1
-      (? (group (** 1 3 alpha)
-		(** 1 5 digit)
-		(** 0 4 alpha))
-	 (? space
-	    (group (= 4 digit)
-		   (** 0 2 alpha))))
-      ;; Cutter2
-      (? space ;; Space required if there is another cutter.
-	 (group (** 1 3 alpha)
-		(** 1 5 digit)
-		(** 0 4 alpha))
-	 (? space
-	    (group (= 4 digit)
-		   (** 0 2 alpha))))
-      ;; Specification; the other stuff
-      (? space
-	 (group (* not-newline))))
-  "Regex that matches Dewey parts.")
-
-(defun callnum-regex-result-list (string regex)
-  "Return the list of all regex matches from a string.
-
-The result is a list which contains the string from each of the
-match groups. STRING is any string to which a regex will be
-applied. REGEX is the applied regular expression."
-  (when string
-    (let ((execute-regex (string-match regex string)) ;; Stores match data.
-	  (n-matches (1- (/ (length (match-data)) 2))))
-      (if execute-regex
-	  (cdr (mapcar (lambda (i) (match-string i string)) ;; Retrieves match data.
-		       (number-sequence 0 n-matches)))))))
-
-(defun callnum-named-alist (callnum-part-list part-alist)
-  "Create a named association list of call number parts.
-
-The CALLNUM-PART-LIST is a list of call number parts from
-CALLNUM-REGEX-RESULT-LIST. PART-ALIST should be one of the
-defined variables named CALLNUM-*-ALIST where the asterisk is the
-name of a library classification."
-  (let* ((part-list callnum-part-list)
-	 (pad-alist part-alist)
-	 (named-alist nil))
-    (while pad-alist
-      (setq named-alist
-	    (append named-alist
-		    (list (list (car (car pad-alist))
-				(pop part-list)
-				(cadr (pop pad-alist)))))))
-    (append named-alist (list (list "left-overs" (pop part-list))))))
-
-(defun callnum-pad-concat (callnum-alist)
-  "Pad the call number parts of a named alist.
-
-CALLNUM-ALIST is the alist which comes from CALLNUM-NAMED-ALIST.
-The result of this function is a padded string."
-  (let* ((call-alist callnum-alist)
-	 (new-str nil)
-	 (part nil)
-	 (pad-spec nil))
-    (while (and call-alist
-		(not (string-equal (caar call-alist)
-				   "specification")))
-      (setq part (pop call-alist))
-      (setq pad-spec (caddr part))
-      (if (cadr part)
-	  (setq new-str (concat new-str
-				(callnum-string-pad (cadr part)
-						    (car pad-spec)
-						    (cadr pad-spec)
-						    (caddr pad-spec))))))
-    (setq new-str (concat new-str (cadar call-alist)))
-    new-str))
-
-(defun callnum-dewey-make-region-sortable (&optional field-num beg end)
-  "Add a padded LC call number to each line in the region.
-
-FIELD-NUM is the field number. A numeric prefix argument
-specifies in which field the call numbers are located. With no
-prefix argument, it assumes field one contains the call number.
-Interactively, BEG and END are the region.
-
-This function does not account for quoted CSV files, therefore
-make sure to place the call number field before any field with a
-comma. For example, if you have a CSV file with two columns, one
-being the call number field and another being the title field,
-place the call number field to the left of the title field. The
-function should work then. You can alternatively change the user
-variable CALLNUM-SEPARATOR to a character that is not in any of
-your fields, assuming that is in fact the separator in your file."
-  (interactive "*p\nr")
-  (cl-flet ((pad-callnum (callnum)
-	      (callnum-pad-concat
-	       (callnum-named-alist
-		(callnum-regex-result-list callnum callnum-dewey-rx)
-		callnum-dewey-alist))))
-    (callnum--act-on-region-by-line #'pad-callnum field-num beg end)))
-
-
 ;;; Provide
 (provide 'callnum)
 ;;; callnum.el ends here
