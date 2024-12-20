@@ -189,7 +189,7 @@ is the field number in which to find the call number."
 	  (goto-char (line-beginning-position))
           (insert (upcase (funcall function-to-use
 				   (callnum--get-callnum-from-line field-num))))
-	  (insert callnum-separator)
+	  (insert callnum-padded-separator)
           (forward-line))))))
 
 ;; Benchmarking tests.
