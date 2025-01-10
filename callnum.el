@@ -108,8 +108,10 @@ CALLNUM-LC-MAKE-REGION-SORTABLE functions."
   "Return the list of all regex matches from a string.
 
 The result is a list which contains the string from each of the
-match groups. STRING is any string to which a regex will be
-applied. REGEX is the applied regular expression."
+match groups. If there are no explicit match groups specified,
+then the whole matching string is returned. STRING is any string
+to which a regex will be applied. REGEX is the applied regular
+expression."
   (when string
     (let ((execute-regex (string-match regex string)) ;; Stores match data.
 	  (n-matches (1- (/ (length (match-data)) 2))))
@@ -156,7 +158,8 @@ then it will automatically be changed to the length of STR."
   "Pad the call number parts of a named alist.
 
 CALLNUM-ALIST is the alist which comes from CALLNUM-NAMED-ALIST.
-The result of this function is a padded string."
+The result of this function is a padded string for one call
+number."
   (let* ((call-alist callnum-alist)
 	 (new-str nil)
 	 (part nil)
@@ -177,7 +180,8 @@ The result of this function is a padded string."
 
 (defun callnum--field-bounds (&optional field-num)
   "Find the start and end position of a field in a buffer.
-This assumes the text is a csv buffer. CSV-mode not required.
+This assumes the text is a csv or csv-like buffer. CSV-mode not
+required.
 
 FIELD-NUM is the field number."
   (catch 'no-sep
@@ -274,19 +278,53 @@ is the field number in which to find the call number."
 ;; Documents comes from the following FDLP document.
 ;; https://www.fdlp.gov/cataloging-and-classification/classification-guidelines/class-stems
 
+(defvar callnum-sudoc-alist
+  (list
+   (list "agency" (list 4 ?0 t))
+   (list "office" (list 4 ?0 nil))
+   (list "cong-comm" (list 4 ?0 t)) ;; Congressional Committee
+   (list "sub-office" (list 4 ?0 t)) ;; Subordinate office
+   (list "main-series" (list 4 ?0 t))
+   (list "related-series" (list 0 ?! t))
+   (list "suffix-part1" (list 8 ?0 t))
+   (list "suffix-part2" (list 8 ?0 t))
+   (list "suffix-part3" (list 8 ?0 t))
+   (list "suffix-part4" (list 8 ?0 t))
+   (list "suffix-part5" (list 8 ?0 t))
+   (list "suffix-part6" (list 8 ?0 t))
+   (list "suffix-part7" (list 8 ?0 t))
+   (list "suffix-part8" (list 8 ?0 t)))
+  "Specifies name, length, pad character and direction.
+Each item in the alist has a name in the car and a list of details in the cdr. List item one is an integer that directs up to N many characters to pad. DIRECTION determines whether to pad left or right. If DIRECTION
+is t, pad left. If nil, pad right. When providing arguments for
+CHAR, it must be preceeded by a '?' unless you know the Emacs
+chararcter number and use that instead. If LEN is less than STR,
+then it will automatically be changed to the length of STR.")
+
+(defvar callnum-sudoc-rx
+  (rx bol
+      (group (or (** 1 4 alpha) (seq "9" digit))) ;; agency
+      (= 1 (any space "-./") (group (** 1 4 digit))) ;; office
+      (? (any space "-./") (group (** 1 4 alpha))) ;; Congressional committee
+      (? (any space "-./") (group (** 1 4 digit))) ;; subordinate office
+      (? (any space "-./") (group (** 1 4 alnum))) ;; main series?
+      (? (any space "-./") (group (** 1 4 alnum))) ;; related series?
+      ":"
+      (= 1 (** 0 2 space) (group (? (* alnum))))
+      (? (? space) (? (any "-./)")) (group (+ (any "(" alnum))))
+      (? (? space) (? (any "-./)")) (group (+ (any "(" alnum))))
+      (? (? space) (? (any "-./)")) (group (+ (any "(" alnum))))
+      (? (? space) (? (any "-./)")) (group (+ (any "(" alnum))))
+      (? (? space) (? (any "-./)")) (group (+ (any "(" alnum))))
+      (? (? space) (? (any "-./)")) (group (+ (any "(" alnum))))
+      (group (? ")")))
+  "Regex that matches SuDoc parts.")
 (defconst callnum-sudoc-examples
   (list "A 13.2:T 73/4" "A 93.2:N 95/3" "A 93.73:76" "A 93.73:89" "A 93.73/2:62" "C 13.58:7564" "C 13.58:7611" "HE 20.4002:AD 9/2" "HE 20.4002:AD 9/5" "HE 20.4002:F 94" "L 36.202:F 15/2" "L 36.202:F 15/2/980" "L 36.202:F 15/3" "Y 1.1/7:109-118" "Y 1.1/7:109-131" "Y 1.1/7:110-6" "Y 1.1/7:110-20" "Y 4.EC 7:C 73/7" "Y 4.EC 7:C 73/10" "Y 4.EC 7:S.HRG.110-646" "Y 4.EC 7:SA 9/2" "Y 4.EC 7:SCH 6" "Y 4.EC 7:SE 2")
   "A list of sample SuDoc call numbers.")
 
-(defun callnum-sudoc-stem-suffix (callnum)
-  "Divide a sudoc call number into a stem and suffix.
-CALLNUM is a string representing call number."
-  (let ((tmp-split (split-string (upcase callnum) ":" t)))
-    (list (cons "stem" (car tmp-split))
-	  (cons "suffix" (cadr tmp-split)))))
-
 (defun callnum-sudoc-correct-space (callnum)
-  "Find and corrects incorrectly spaced call numbers.
+  "Corrects some incorrectly spaced call numbers.
 A determination for incorrect comes from the FDLP SuDoc
 classification guidelines. This function corrects two cases.
 First, there must be a space when the call number string switches
@@ -308,169 +346,33 @@ CALLNUM is a string representing a call number."
 	(setq new-callstr (concat new-callstr (string (aref callnum (1+ x)))))))
     new-callstr))
 
-(defun callnum-sudoc-parts (call-str)
-  "Analyzes every character in a string to divide the call number.
-Divides the call number using most punctuation and any change
-from numbers to letters or vice versa. Parenthesis and ampersands
-are kept as they are in the call number because that is how GPO
-does it in the combined shipping lists. CALL-STR is the call
-number string. The result is a list of call number parts. This
-function makes no attempt to name or identify the meaning of the
-parts."
-  (let ((callistb nil) ;; A list of call number parts.
-	(calltemp nil) ;; Temporary holder for a call number part.
-	(y 0)
-	(sufchar nil))
-    (while (> (length call-str) y)
-      (setq y (1+ y))
-      (setq sufchar (substring call-str (1- y) y))
-      (cond
-       ((string-match "[0-9a-z]" sufchar)
-	(setq calltemp (concat calltemp sufchar)))
-       ((string-match "[\\.\\:\s/-]" sufchar)
-	(when calltemp (setq callistb (append (list calltemp) callistb)))
-	(setq calltemp nil))
-       ((string-match "[()&]" sufchar)
-	(setq callistb (append (list sufchar) callistb))
-	(setq calltemp nil))))
-    (setq callistb (append (list calltemp) callistb))
-    (if (eq (car callistb) nil)
-	(nreverse (cdr callistb))
-      (nreverse callistb))))
-
-;; callnum-sudoc-names is only used when the call number parts need to be
-;; separated.
-(defun callnum-sudoc-names (callnum)
-  "Separate a SuDoc call number into named parts.
-This function is not used by any other functions but may be
-helpful for the user.
-
-CALLNUM is a string representing call number.
-
- I am not convinced there is an algorithmic way to identify each
-part, given the complexity of existent SuDoc numbers. That said,
-this function works most of the time."
-  (let* ((split1 (callnum-sudoc-stem-suffix callnum))
-	 (stem (cdar split1))
-	 (suffix (cdadr split1))
-	 (call2 stem)
-	 (agency (when (string-match "^[a-z]\\{1,4\\}" call2)
-		   (match-string 0 call2)))
-	 (call2 (string-trim (seq-subseq call2 (length agency))))
-	 ;; Subordinate office.
-	 (suboff (when (string-match "^[0-9]\\{1,3\\}" call2)
-		   (match-string 0 call2)))
-	 (call2 (string-trim (seq-subseq call2 (length suboff))))
-	 ;; Congressional Committee cutter number, if appropriate.
-	 (commit (when (string-match "^.\\([a-z]\\{1,3\\}.*\\)" call2)
-		   (match-string 1 call2)))
-	 ;; Main series of the call number.
-	 (mseries
-	  (if commit nil
-	    (when (string-match "^\\(.?\\)\\([0-9]\\{1,4\\}\\)\\(.*\\)" call2)
-	      (match-string 2 call2))))
-	 ;; Related series of the call number.
-	 (rseries (if commit nil
-		    (when (string-match "^\\(.*\\)" call2)
-		      (match-string 2 call2))))
-	 (suflist (split-string suffix "[\\.\\:\s/-]"))
-	 (suftest (callnum-sudoc-parts suffix))
-	 (suflist2 nil)
-	 (x 0))
-    (while suftest
-      (setq x (1+ x))
-      (push (cons (concat "part" (number-to-string x))
-		  (pop suftest))
-	    suflist2))
-    (setq suflist2 (nreverse suflist2))
-    (append (list (cons "stem" stem)
-		  (cons "suffix" suffix)
-		  (cons "agency" agency)
-		  (cons "subordinate-office" suboff)
-		  (cons "congressional-committee" commit)
-		  (cons "main-series" mseries)
-		  (cons "related-series" rseries)
-		  (cons "the rest" suflist))
-	    suflist2)))
-
-(defun callnum-sudoc-divide (callnum)
-  "Create a list of SuDoc call number parts.
-
-CALLNUM is a string representing call number.
-
-For ASCII and UTF-8, Emacs sorts the colon (:) after zero. Rather
-than using GPO's example of keeping the colon in the string, it
-is replaced with the exclamation mark (!) which is sorted before
-a zero in Emacs.
-
-This function differs from CALLNUM-SUDOC-NAMES in that it does
-not try to name each part of the divided call number. It creates
-a list rather than an association list."
-  (let* ((split1 (callnum-sudoc-stem-suffix callnum))
-	 (stemlist (callnum-sudoc-parts (cdar split1)))
-	 (suflist (callnum-sudoc-parts (cdadr split1))))
-    (append stemlist (list "!") suflist)))
-
-(defun callnum-sudoc-paste-spaced (&optional field-num beg end)
-  "Add a correctly spaced call number at the beginning of a line.
-
-As of 2024-12-06, this function is only useful for the SuDoc
-classification. It finds and corrects incorrectly spaced call
-numbers in two cases. First, there must be a space when the call
-number string switches from [:alpha:] to [:digit:] or [:digit:]
-to [:alpha:]. Second, there should not be a space after the
-colon.
-
-FIELD-NUM is the field number. A numeric prefix argument
-specifies the field number where the call numbers are
-located. With no prefix argument, it assumes field one contains
-the call number. Interactively, BEG to END is the region."
-  (interactive "*p\nr")
-  (callnum--act-on-region-by-line
-   #'callnum-sudoc-correct-space field-num beg end))
-
-(defun callnum-sudoc-pad-concat (callnum)
-  "Pad all non-empty integer items from a call number list.
-It uses the output of CALLNUM-SUDOC-DIVIDE and only pads numeric
-fields. CALLNUM is a list of call number parts."
-  (let ((buildstr nil)
-	(callnum-list (callnum-sudoc-divide callnum))
-	(str-check nil))
-    (dolist (n callnum-list)
-      (let ((call-part (string-to-number n)))
-	(cond ((> call-part 0)
-	       (setq buildstr (concat buildstr (format "%04d" call-part)))
-	       (setq str-check nil))
-	      (str-check
-	       (setq buildstr (concat buildstr "0" n)))
-	      ((string-equal n "!")
-	       (setq buildstr (concat buildstr n))
-	       (setq str-check nil))
-	      (t
-	       (setq buildstr (concat buildstr n))
-	       (setq str-check t)))))
-    buildstr))
-
 (defun callnum-sudoc-make-region-sortable (&optional field-num beg end)
   "Add a padded call number to each line in the region.
 
-A numeric prefix argument specifies FIELD-NUM and is the field
-where the call numbers are located. With no prefix argument, it
-assumes field one contains the call number. Interactively, BEG
-and END are the region.
+FIELD-NUM is the field number. A numeric prefix argument
+specifies in which field the call numbers are located. With no
+prefix argument, it assumes field one contains the call number.
+Interactively, BEG and END are the region.
 
-This function does not account for quoted csv files, therefore
+This function does not account for quoted CSV files, therefore
 make sure to place the call number field before any field with a
 comma. For example, if you have a CSV file with two columns, one
 being the call number field and another being the title field,
-place the call number field to the left of the title field. The
+place the call number field to the left of the title field.  The
 function should work then. You can alternatively change the user
-variable CALLNUM-SEPARATOR to a character that is not in
-any of your fields."
+variable CALLNUM-SEPARATOR to a character that is not in any of
+your fields, assuming that is in fact the separator in your file."
   (interactive "*p\nr")
-  (callnum--act-on-region-by-line
-   ;; The sharp quote informs the byte-compiler
-   #'callnum-sudoc-pad-concat field-num beg end))
+  ;; TODO: This pad-callnum is recreated for each call number system.
+  ;; Is there a way to move those out into a separate function? If I
+  ;; do, it must have multiple variables and then it makes this
+  ;; function more than it should be.
+  (cl-flet ((pad-callnum (callnum)
+	      (callnum-pad-concat
+	       (callnum-named-alist
+		(callnum-regex-result-list callnum callnum-sudoc-rx)
+		callnum-sudoc-alist))))
+    (callnum--act-on-region-by-line #'pad-callnum field-num beg end)))
 
 
 ;;; LC functions
