@@ -100,3 +100,49 @@ Other specification examples may look like the examples below. I do not claim th
 The [[https://www.fdlp.gov/cataloging-and-classification/classification-guidelines/class-stems][Superintendent of Documents Classification Guidelines]] explain how SuDoc numbers should be formed. In the SuDoc classification, all numbers are considered whole numbers and can be left padded. Every part of the call number must be separated by a separating punctuation character or a space. Any period, also known as a full stop, is considered a separating punctuation character.
 
 The result of these rules is that the padding algorithm only has to detect a change in [[https://www.gnu.org/software/emacs/manual/html_node/elisp/Char-Classes.html][character class]] and the end of a call number part to know how to split a call number. It replaces the colon with an exclamation point to give a visual separator and make the padded string more readable. Only number parts and the second of two consecutive alphabetic parts (H.HRG) need to be padded. (There may be further complexity, especially after the colon. If you need better sorting, create an issue or email the author with examples.)
+
+Different patterns have multiple meanings depending on the context. For instance "987" may mean 1987 as a year, since the fourth digit was left off until the year 2000, or it may mean the 987th item in a series.
+
+** Dewey
+Dewey decimal numbers are easy to sort in the class part of the call number. They are simple floating point numbers, meaning they use decimals (most of the time). But, they too have a cutter number and cutter numbers are much more complicated, like they are for LC cutter numbers. The difficult thing is that there are lots of local variations on cutter numbers. That variation means more complexity for a sorting algorithm. callnum.el attempts to cover most common use.
+
+** Writing your own call number sorting regex
+callnum.el uses a framework for sorting call numbers that can easily be extended with the creation of one regular expression, one alist, and one function. The function is just a copied and renamed template from one of the other call numbers.
+
+*** Define an alist
+First, define an alist containing call number part names as seen below. The car contains the part names and the cdr contains another list. ~(list "dewey-integer" (list 3 ?0 t))~ If you are familiar with the format function in Emacs then this should seem familiar. It is an ease of use function over the formatting functionality. The list in the cdr has three parts:
+1. The first item is an integer that specifies how many characters that named part should have. This needs to be the longest possible string length you might encounter. If padding is needed for that part of the call number, then it will pad that many characters. In the Dewey example below, the first part of the Dewey number can have up to 3 digits. That is easy because every Dewey number is supposed to have three digits anyway, but in case you encounter "1.23" as a Dewey number, the first part would be padded to "001". (Note that this is only an excerpt of callnum-dewey-alist.)
+2. The second item in the list indicates what the padding character is. This must be preceeded by a "?". While callnum.el typically uses zeros to padd things, it is sometimes better to use other characters.
+3. The last item in the list is a boolean variable. t tells callnum.el to pad left. nil tells it to pad right.
+#+begin_src emacs-lisp
+  (defvar callnum-dewey-alist
+  (list
+   (list "dewey-integer" (list 3 ?0 t))
+   (list "decimal-separator" (list 1 ?! nil))
+   (list "dewey-decimal" (list 10 ?0 nil))
+  "Defines the padding requirements for XYZ call numbers.")
+#+end_src
+*** Define a regular expression
+Defining a regular expression that captures all variations in a call number system is no easy task, and may be impossible for some systems. If it is possible, I highly suggest defining the regex using rx notation and that is what the Dewey excerpt blow shows. Each part of the call number must be in a capture group. Extra spaces and punctuation that you do not want in a sorting string should not be captured.
+#+begin_src emacs-lisp
+  (defvar callnum-dewey-rx
+  (rx bol ;; begin line
+      (= 1 ;; One and only one
+         (group (= 3 digit)) ;; Capture a group of 3 digits.
+         (group (? ".")) ;; Capture a period.
+         (group (** 0 10 digit))))) ;; Capture zero to ten digits.
+#+end_src
+*** Define a function
+The last step to creating a padded call number for your own system is to define an interactive function that you can call on a line or region so you can insert the padded string. In the following function example, you can simply replace the "xyz" strings with the chosen name for your call number system. It should correspond with callnum-xyz-alist and callnum-xyz-rx. See the Dewey versions in the code for an example.
+
+#+begin_src emacs-lisp
+  (defun callnum-xyz-make-region-sortable (&optional field-num beg end)
+  "Add a padded LC call number to each line in the region."
+  (interactive "*p\nr")
+  (cl-flet ((pad-callnum (callnum)
+	      (callnum-pad-concat
+	       (callnum-named-alist
+		(callnum-regex-result-list callnum callnum-xyz-rx)
+		callnum-xyz-alist))))
+    (callnum--act-on-region-by-line #'pad-callnum field-num beg end)))
+#+end_src
