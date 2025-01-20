@@ -224,7 +224,7 @@ FIELD-NUM is the field number."
 				       (line-end-position))))))
 	start-end))))
 
-(defun callnum--toolong-error (&optional checker)
+(defun callnum-toolong-error (&optional checker)
   "Message the user when separators are inconsistent.
 This is only used internally in the ‘callnum--field-bounds’
 function. CHECKER checks to see if something is wrong."
@@ -233,7 +233,7 @@ function. CHECKER checks to see if something is wrong."
 	   (prin1 (format "Incorrect separator(s) found on line %d."
 			  (line-number-at-pos))))))
 
-(defun callnum--get-callnum-from-line (&optional field-num)
+(defun callnum-get-callnum-from-line (&optional field-num)
   "Return call number from a line of text in a csv file.
 FIELD-NUM is the field number in which to find the call number."
   (interactive "*p")
@@ -245,7 +245,7 @@ FIELD-NUM is the field number in which to find the call number."
 	(replace-regexp-in-string "\"" "" (substring return-string 0 -1))
       (replace-regexp-in-string "\"" "" return-string))))
 
-(defun callnum--act-on-region-by-line (function-to-use &optional field-num beg end)
+(defun callnum-act-on-region-by-line (function-to-use &optional field-num beg end)
   "Perform a function on every line of the region.
 FUNCTION-TO-USE should return a string. BEG and END will
 typically be passed from another interactive function. FIELD-NUM
@@ -263,7 +263,7 @@ is the field number in which to find the call number."
 	(while (not (eobp))
 	  (goto-char (line-beginning-position))
           (insert (upcase (funcall function-to-use
-				   (callnum--get-callnum-from-line field-num))))
+				   (callnum-get-callnum-from-line field-num))))
 	  (insert callnum-separator)
           (forward-line))))))
 
@@ -280,45 +280,76 @@ is the field number in which to find the call number."
 
 (defvar callnum-sudoc-alist
   (list
-   (list "agency" (list 4 ?0 t))
+   (list "agency" (list 4 ?0 nil))
    (list "office" (list 4 ?0 nil))
-   (list "cong-comm" (list 4 ?0 t)) ;; Congressional Committee
+   (list "cong-comm" (list 4 ?0 nil)) ;; Congressional Committee
    (list "sub-office" (list 4 ?0 t)) ;; Subordinate office
    (list "main-series" (list 4 ?0 t))
-   (list "related-series" (list 0 ?! t))
+   (list "related-series" (list 4 ?0 t))
+   (list "delimiter" (list 0 ?! t))
    (list "suffix-part1" (list 8 ?0 t))
-   (list "suffix-part2" (list 8 ?0 t))
+   (list "suffix-part2" (list 8 ?0 nil))
    (list "suffix-part3" (list 8 ?0 t))
-   (list "suffix-part4" (list 8 ?0 t))
+   (list "suffix-part4" (list 8 ?0 nil))
    (list "suffix-part5" (list 8 ?0 t))
-   (list "suffix-part6" (list 8 ?0 t))
+   (list "suffix-part6" (list 8 ?0 nil))
    (list "suffix-part7" (list 8 ?0 t))
-   (list "suffix-part8" (list 8 ?0 t)))
+   (list "suffix-part8" (list 8 ?0 t))
+   (list "suffix-part9" (list 8 ?0 t)))
   "Specifies name, length, pad character and direction.
-Each item in the alist has a name in the car and a list of details in the cdr. List item one is an integer that directs up to N many characters to pad. DIRECTION determines whether to pad left or right. If DIRECTION
-is t, pad left. If nil, pad right. When providing arguments for
-CHAR, it must be preceeded by a '?' unless you know the Emacs
-chararcter number and use that instead. If LEN is less than STR,
-then it will automatically be changed to the length of STR.")
+  Each item in the alist has a name in the car and a list of
+  details in the cdr. List item one is an integer that directs up
+  to N many characters to pad. DIRECTION determines whether to
+  pad left or right. If DIRECTION is t, pad left. If nil, pad
+  right. When providing arguments for CHAR, it must be preceeded
+  by a '?' unless you know the Emacs chararcter number and use
+  that instead. If LEN is less than STR, then it will
+  automatically be changed to the length of STR.")
+
+(defvar callnum-sudoc-rx-old
+  (rx bol
+      (group (or (** 1 4 alpha) (seq "9" digit))) ;; agency
+      (? (= 1 (any blank "-./") (group (** 1 4 digit)))) ;; office
+      (? (any blank "-./") (group (** 1 4 alpha))) ;; Congressional committee
+      (? (any blank "-./") (group (** 1 4 digit))) ;; subordinate office
+      (? (any blank "-./") (group (** 1 4 digit))) ;; main series?
+      (? (any blank "-./") (group (** 1 4 digit))) ;; related series?
+      (seq (? blank) (group ":"))
+      (= 1 (** 0 2 blank) (group (? (* alnum))))
+      (? (? blank) (? (any "-./)")) (group (+ (any "(" alpha))))
+      (? (? blank) (? (any "-./)")) (group (+ (any "(" digit))))
+      (? (? blank) (? (any "-./)")) (group (+ (any "(" alpha))))
+      (? (? blank) (? (any "-./)")) (group (+ (any "(" digit))))
+      (? (? blank) (? (any "-./)")) (group (+ (any "(" alpha))))
+      (? (? blank) (? (any "-./)")) (group (+ (any "(" digit))))
+      (? (? blank) (? (any "-./)")) (group (+ (any "(" digit))))
+      (group (? ")"))
+      )
+  "Regex that matches SuDoc parts.")
 
 (defvar callnum-sudoc-rx
   (rx bol
-      (group (or (** 1 4 alpha) (seq "9" digit))) ;; agency
-      (= 1 (any space "-./") (group (** 1 4 digit))) ;; office
-      (? (any space "-./") (group (** 1 4 alpha))) ;; Congressional committee
-      (? (any space "-./") (group (** 1 4 digit))) ;; subordinate office
-      (? (any space "-./") (group (** 1 4 alnum))) ;; main series?
-      (? (any space "-./") (group (** 1 4 alnum))) ;; related series?
-      ":"
-      (= 1 (** 0 2 space) (group (? (* alnum))))
-      (? (? space) (? (any "-./)")) (group (+ (any "(" alnum))))
-      (? (? space) (? (any "-./)")) (group (+ (any "(" alnum))))
-      (? (? space) (? (any "-./)")) (group (+ (any "(" alnum))))
-      (? (? space) (? (any "-./)")) (group (+ (any "(" alnum))))
-      (? (? space) (? (any "-./)")) (group (+ (any "(" alnum))))
-      (? (? space) (? (any "-./)")) (group (+ (any "(" alnum))))
+      (group (or (** 1 4 alpha) (seq "9" digit)))
+      (? (? (any blank "-./")) (group (** 1 4 digit)))
+      (? (** 0 2 (any blank "-./")) (group (** 1 4 alpha)))
+      (? (** 0 2 (any blank "-./")) (group (** 1 4 digit)))
+      (? (** 0 2 (any blank "-./")) (group (** 1 4 digit)))
+      (? (** 0 2 (any blank "-./")) (group (** 1 4 alpha)))
+      (? (** 0 2 (any blank "-./")) (group (** 1 4 digit)))
+      (? (** 0 2 (any blank "-./")) (group (** 1 4 digit)))
+      (seq (? blank) (group ":"))
+      (? (** 0 2 (any blank "-./")) (group (+ (any "(" alpha))))
+      (? (** 0 2 (any blank "-./")) (group (+ (any "(" digit))))
+      (? (** 0 2 (any blank "-./")) (group (+ (any "(" alpha))))
+      (? (** 0 2 (any blank "-./")) (group (+ (any "(" digit))))
+      (? (** 0 2 (any blank "-./")) (group (+ (any "(" alpha))))
+      (? (** 0 2 (any blank "-./")) (group (+ (any "(" digit))))
+      (? (** 0 2 (any blank "-./")) (group (+ (any "(" alpha))))
+      (? (** 0 2 (any blank "-./")) (group (+ (any "(" digit))))
       (group (? ")")))
-  "Regex that matches SuDoc parts.")
+  "Regex later try that matches SuDoc parts.")
+
+
 (defconst callnum-sudoc-examples
   (list "A 13.2:T 73/4" "A 93.2:N 95/3" "A 93.73:76" "A 93.73:89" "A 93.73/2:62" "C 13.58:7564" "C 13.58:7611" "HE 20.4002:AD 9/2" "HE 20.4002:AD 9/5" "HE 20.4002:F 94" "L 36.202:F 15/2" "L 36.202:F 15/2/980" "L 36.202:F 15/3" "Y 1.1/7:109-118" "Y 1.1/7:109-131" "Y 1.1/7:110-6" "Y 1.1/7:110-20" "Y 4.EC 7:C 73/7" "Y 4.EC 7:C 73/10" "Y 4.EC 7:S.HRG.110-646" "Y 4.EC 7:SA 9/2" "Y 4.EC 7:SCH 6" "Y 4.EC 7:SE 2")
   "A list of sample SuDoc call numbers.")
@@ -372,7 +403,37 @@ your fields, assuming that is in fact the separator in your file."
 	       (callnum-named-alist
 		(callnum-regex-result-list callnum callnum-sudoc-rx)
 		callnum-sudoc-alist))))
-    (callnum--act-on-region-by-line #'pad-callnum field-num beg end)))
+    (callnum-act-on-region-by-line #'pad-callnum field-num beg end)))
+
+(defun callnum-sudoc-make-region-sortable-clean (&optional field-num beg end)
+  "Add a padded call number to each line in the region.
+
+FIELD-NUM is the field number. A numeric prefix argument
+specifies in which field the call numbers are located. With no
+prefix argument, it assumes field one contains the call number.
+Interactively, BEG and END are the region.
+
+This function does not account for quoted CSV files, therefore
+make sure to place the call number field before any field with a
+comma. For example, if you have a CSV file with two columns, one
+being the call number field and another being the title field,
+place the call number field to the left of the title field.  The
+function should work then. You can alternatively change the user
+variable CALLNUM-SEPARATOR to a character that is not in any of
+your fields, assuming that is in fact the separator in your file."
+  (interactive "*p\nr")
+  ;; TODO: This pad-callnum is recreated for each call number system.
+  ;; Is there a way to move those out into a separate function? If I
+  ;; do, it must have multiple variables and then it makes this
+  ;; function more than it should be.
+  (cl-flet ((pad-callnum (callnum)
+	      (let (callnum-cleaned
+		    (callnum-sudoc-eleminate-punctuation callnum)))
+	      (callnum-pad-concat
+	       (callnum-named-alist
+		(callnum-regex-result-list callnum callnum-sudoc-rx)
+		callnum-sudoc-alist))))
+    (callnum-act-on-region-by-line #'pad-callnum field-num beg end)))
 
 
 ;;; LC functions
@@ -721,7 +782,7 @@ your fields, assuming that is in fact the separator in your file."
   (cl-flet ((pad-callnum (callnum)
 	      (callnum-lc-pad-concat
 	       (callnum-lc-all-parts callnum))))
-    (callnum--act-on-region-by-line #'pad-callnum field-num beg end)))
+    (callnum-act-on-region-by-line #'pad-callnum field-num beg end)))
 
 (defun callnum-lc-find-invalid (&optional field-num beg end)
   "Find invalid classification strings in region or on line.
@@ -739,7 +800,7 @@ Interactively, BEG and END are the region."
   (cl-flet ((bad-callnum (callnum)
 	      (callnum-lc-pad-concat
 	       (callnum-lc-all-parts callnum))))
-    (callnum--act-on-region-by-line #'bad-callnum field-num beg end)))
+    (callnum-act-on-region-by-line #'bad-callnum field-num beg end)))
 
 
 ;;; Dewey functions
@@ -826,7 +887,7 @@ your fields, assuming that is in fact the separator in your file."
 	       (callnum-named-alist
 		(callnum-regex-result-list callnum callnum-dewey-rx)
 		callnum-dewey-alist))))
-    (callnum--act-on-region-by-line #'pad-callnum field-num beg end)))
+    (callnum-act-on-region-by-line #'pad-callnum field-num beg end)))
 
 
 ;;; Provide
