@@ -431,22 +431,29 @@ These call numbers give an idea of the diversity of strings that
 callnum.el must handle.")
 
 (defconst callnum-sudoc-sort-sample
-  (list "R222.2 2013 102nd.A349 2004" "RA2.2 2013 102nd.A349 2004" "RA30.2 2013 102nd.A349 2004" "RM202.2 2013 102nd.A349 2004" "RM203.21 2013 102nd.A349 2004" "RM203.3 2013 102nd.A349 2004" "RM222.2 102nd.A349 2004" "RM222.2 2013 102nd.A349 2004" "RM222.2 2014 102nd.A349 2004" "RM222.2 2015 2nd.A349 2004" "RM222.2 2015 102nd.A349 2004" "RM222.2 2015 102nd.A.349 2004" "RM222.2 2015 102nd. A349 2004" "RM222.2 2015 102nd.A349 2004" "RM222.2 2015 102nd.B349 2004" "RM222.2 2015 102nd.B9 2004" "RM222.2 2015 102nd.B9 2005" "RM222.2 2015 102nd.C9 2004" "RM222.2 2015 102nd.C9a 2004" "RM222.2 2015 102nd.C9b 2004" "RM222.2 2015 102nd.D23 R328945987" "RM222.2 2015 102nd.D23 R4" "RM222.2 2015 102nd.D23 R4Lo" "RM222.2 2015 102nd.D23 R4x" "RM222.2 2015 102nd.D23 R5 2013" "RM222.2 2015 102nd.D23 2021 R5 2013" "RM222.2 2015 102nd.D23 2022 R5 2013" "RM222.2 2015 102nd.D23 2022 R.5 2013" "RM222.2 2015 102nd.D23 2022 R5 2014" "RM222.2 2015 102nd.D23x 2022 R5 2014" "RM222.2 2015 102nd.D24 2022 R5 2014" "RM222.2 2015 102nd.D24 2022 R5 2014 A5" "RM222.2 2015 102nd.D24 2022 R5 2014 A5 1912" "RM222.2 2015 102nd.D24 2022 R5 2014 A5 1912 vol.1" "RM222.2 2015 102nd.D24 2022 R5 2014 A5 1912 v2" "RM222.2 2015 102nd.D24 2022 R5 2014 A5 1915 bk1" "RM222.2 2015 102nd.D24 2022 R5 2014 A5 1915 bk.2" "RM222.2 2015 102nd.D24 2022 R5 2014 A5 1915 vol.6 no.3-vol.7 no.2" "RM222.2 2015 102nd.Z1 1958" "RM222.2 2015 102nd.Z1 1958-63")
+  (list "R222.2 2013 102nd.A349 2004" "RA2.2 2013 102nd.A349 2004" "RA30.2 2013 102nd.A349 2004" "RM202.2 2013 102nd.A349 2004" "RM203.21 2013 102nd.A349 2004" "RM203.3 2013 102nd.A349 2004" "RM222.2 102nd.A349 2004" "RM222.2 2013 102nd.A349 2004" "RM222.2 2014 102nd.A349 2004" "RM222.2 2015 2nd.A349 2004" "RM222.2 2015 102nd.A349 2004" "RM222.2 2015 102nd.A.349 2004" "RM222.2 2015 102nd. A349 2004" "RM222.2 2015 102nd.A349 2004" "RM222.2 2015 102nd.B349 2004" "RM222.2 2015 102nd.B9 2004" "RM222.2 2015 102nd.B9 2005" "RM222.2 2015 102nd.C9 2004" "RM222.2 2015 102nd.C9a 2004" "RM222.2 2015 102nd.C9b 2004" "RM222.2 2015 102nd.D23 R328945987" "RM222.2 2015 102nd.D23 R4" "RM222.2 2015 102nd.D23 R4Lo" "RM222.2 2015 102nd.D23 R4x" "RM222.2 2015 102nd.D23 R5 2013" "RM222.2 2015 102nd.D23 2021 R5 2013" "RM222.2 2015 102nd.D23 2022 R5 2013" "RM222.2 2015 102nd.D23 2022 R.5 2013" "RM222.2 2015 102nd.D23 2022 R5 2014" "RM222.2 2015 102nd.D23x 2022 R5 2014" "RM222.2 2015 102nd.D24 2022 R5 2014" "RM222.2 2015 102nd.D24 2022 R5 2014 A5" "RM222.2 2015 102nd.D24 2022 R5 2014 A5 1912" "RM222.2 2015 102nd.D24 2022 R5 2014 A5 1912 vol.1" "RM222.2 2015 102nd.D24 2022 R5 2014 A5 1912 v2" "RM222.2 2015 102nd.D24 2022 R5 2014 A5 1915 bk1" "RM222.2 2015 102nd.D24 2022 R5 2014 A5 1915 bk.2" "RM222.2 2015 102nd.D24 2022 R5 2014 A5 1915 vol.6 no.3-vol.7 no.2" "RM222.2 2015 102nd.Z1 1958" "RM222.2 2015 102nd.Z1 1958-63" "RM222.2123456 2015 102nd.Z1 1958-63")
   "A sample of contrived SuDoc numbers to check a sorting algorithm.")
 
-(defvar callnum-lc-class-alist
+(defvar callnum-lc-alist
   (list
    (list "class" (list 3 ?0 nil))
    (list "caption-integer" (list 4 ?0 t))
-   ;; This pads 8 characters but that includes the decimal, which is
-   ;; in the capture group. See CALLNUM-LC-CLASS-REGEX.
-   (list "caption-decimal" (list 8 ?0 nil))
-   ;; Years should always be four digits. This adds an
-   ;; asterisk before the string to make it sort before
-   ;; caption-ordinals.
-   (list "caption-date" (list 4 ?* t))
+   (list "caption-decimal" (list 8 ?0 nil)) ;; decimal included in capture group
+   (list "caption-date" (list 4 ?* t)) ;; adds an asterisk for sorting
    (list "caption-ordinal" (list 4 ?0 t))
-   (list "caption-ord-indicator" (list 2 ?0 t)))
+   (list "caption-ord-indicator" (list 2 ?0 t))
+   (list "cutter-one" (list 12 ?0 nil))
+   (list "cutter-one-date" (list 4 ?0 nil))
+   (list "cutter-two" (list 12 ?0 nil))
+   (list "cutter-two-date" (list 4 ?0 nil))
+   (list "cutter-three" (list 12 ?0 nil))
+   (list "cutter-three-date" (list 4 ?0 nil))
+   (list "spec-string-one" (list 0 ?0 nil))
+   (list "spec-digits-one" (list 4 ?0 t))
+   (list "spec-string-two" (list 0 ?0 nil))
+   (list "spec-digits-two" (list 4 ?0 t))
+   ;; (list "spec-leftovers" (list 0 ?0 nil))
+   )
   "Defines the padding requirements for call number parts.
 
 Change this varible if the padding amounts do not meet your
@@ -454,151 +461,45 @@ needs. In (list 4 ?0 t), the ‘4’ specifies total padding. The
 ‘?0’ is the padding character. The question mark is required in
 front of any character but is not a padding character. The t
 specifies to pad left. nil pads right. See the function
-LC-STRING-PAD for details.
+LC-STRING-PAD for details.")
 
-The classification string of a Library of Congress (LC) call
-number may have up to six parts. When creating a string to sort,
-they all pad left except the caption-decimal. Whether the part is
-used in a call number or not, the algorithm adds padding for that
-part. The padding is zero and therefore will sort before any
-other alphanumeric character, assuming sort ASCII order.
 
-If further types of parts must be added, then the function
-lc-named-class-list must also be changed. The parts are hard
-coded into that function.")
+(defvar callnum-lc-rx
+  (rx bol
+      (group (** 1 3 alpha)) (? blank)	   ;; class
+      (group (** 0 4 digit))		   ;; caption integer
+      (group "." (** 0 8 digit)) (? blank) ;; caption decimal
+      (group (? (= 4 digit))) (? blank)	   ;; caption date
+      (group (** 1 4 digit)) (? blank)	   ;; caption ordinal
+      (group (** 1 2 alpha)) (* blank) ;; caption ordinal indicator
+      (group ".") (? blank) ;; dividing period
+      ;; Cutter section. There may be up to three cutter number and date pairs.
+      (group (? (? alpha (** 1 10 digit)) (** 0 2 alpha))) (** 0 3 blank)
+      (group (? (= 4 digit))) (** 0 3 blank)
+      (group (? (? alpha (** 1 10 digit)) (** 0 2 alpha))) (** 0 3 blank)
+      (group (? (= 4 digit))) (** 0 3 blank)
+      (group (? (? alpha (** 1 10 digit)) (** 0 2 alpha))) (** 0 3 blank)
+      (group (? (= 4 digit))) (** 0 3 blank)
+      ;; Specification
+      (group (? (+ alpha) (? punct) (+ digit))) (** 0 3 blank)
+      (group (? (+ alpha) (? punct) (+ digit)))
+      (group (* not-newline)))
+  "Regex that matches the parts of an LC call number.
 
-(defvar callnum-lc-cutter-alist
-  (list
-   (list "cutter-one" (list 12 ?0 nil))
-   (list "cutter-one-date" (list 4 ?0 nil))
-   (list "cutter-two" (list 12 ?0 nil))
-   (list "cutter-two-date" (list 4 ?0 nil))
-   (list "cutter-three" (list 12 ?0 nil))
-   (list "cutter-three-date" (list 4 ?0 nil)))
-  "Defines the padding for LC cutter parts.
-
-See the documentation for LC-CLASS-ALIST for information on what
-the alist parts (list 12 ?0 nil) mean.
-
-For the purposes of this program, each cutter part may contain a
-string as complex as ‘S5x 1991’. The date is not actually part of
-the cutter but due to their intermixing, I placed them together
-here. Date ranges (S5x 1991-1995) in the cutter are not
-supported. Thematic index numbers for music call numbers are not
-supported. They are placed in the specification string. All
-characters that do not match according to the regex go to the
-‘leftovers’ in function LC-NAMED-ALIST.")
-
-(defvar callnum-lc-specification-alist
-  (list
-   (list "specification-one" (list 20 ?0 nil)))
-  "Defines the padding for LC specification parts.
-
-The ‘specification’ is the rest of the call number after the
-cutters. See the documentation for LC-CLASS-ALIST for information
-about how to change the alist. The specification has no padding.
-
-The LC-CUTTER-REGEX does not match date ranges. If there is a
-cutter after a date range it will end up in the specification.")
-
-(defvar callnum-lc-specification-alist2
-  (list
-   (list "spec-string-one" (list 0 ?0 nil))
-   (list "spec-digits-one" (list 4 ?0 t))
-   (list "spec-string-two" (list 0 ?0 nil))
-   (list "spec-digits-two" (list 4 ?0 t))
-   ;; (list "spec-leftovers" (list 0 ?0 nil))
-   )
-  "Defines the padding for LC specification parts.
-
-The ‘specification’ is the rest of the call number after the
-cutters. See the documentation for LC-CLASS-ALIST for information
-about how to change the alist. Non-digit strings will not pad.
-See documentation for LC-SPEC-REGEX for more information.")
-
-(defvar callnum-lc-class-regex
-  "^\\([[:alpha:]]\\{1,3\\}\\)[ ]?\\([0-9]\\{1,4\\}\\)?\\(\\.[0-9]\\{1,8\\}\\)?[ ]?\\([0-9]\\{4\\}\\)?[ ]?\\([0-9]\\{1,4\\}\\)?[ ]?\\([[:alpha:]]\\{1,2\\}\\)?[ ]*\\.\\(.*\\)"
-  "Regex that matches the parts of the classification string.
-
-The last match of this string is the rest of the call number.
-The rest is sent to code which further acts on it. This method
-was adopted to decrease the regex size and because I was unable
-to create a regex that correctly matched all parts of call
-number.
-
-It does not currently match classifications without cutters. It also
-does not correctly match LC call numbers that have a cutter
-string but do not have a period separating the classification
-string from the cutter string. In such cases, it may capture the
-first part of the cutter.
+TODO: It does not currently match classifications without
+cutters. It also does not correctly match LC call numbers that
+have a cutter string but do not have a period separating the
+classification string from the cutter string. In such cases, it
+may capture the first part of the cutter.
 
 If you have such call numbers, run function CALLNUM-LC-NORMALIZE-CALLNUM
 to find them and add a separator.")
-
 (defvar callnum-lc-class-normalize-regex
   "^\\(\\([[:alpha:]]\\{1,3\\}\\)\\([0-9]\\{1,4\\}\\)?\\(\\.[0-9]\\{1,10\\}\\)?[ ]?\\([0-9]\\{4\\}\\)?[ ]?\\([0-9]\\{1,5\\}[ ]?[[:alpha:]]\\{0,5\\}\\)?\\)\\(.*\\)"
   "Recognize the classification string if there is no period.
 
 This is similar but not the same as LC-CLASS-REGEX. This regex is
 only used if the first one finds no class parts.")
-
-(defvar callnum-lc-cutter-regex
-  (concat "^[ ]?\\(\\(?:[[:alpha:]][[:digit:]]\\{1,10\\}\\)\\(?:[[:alpha:]]\\{1,2\\}\\)?\\)?"
-	  "[ ]?[ ]?\\([[:digit:]]\\{4\\}\\)?"
-	  "[ ]?\\(\\(?:[[:alpha:]][[:digit:]]\\{1,10\\}\\)\\(?:[[:alpha:]]\\{1,2\\}\\)?\\)?"
-	  "[ ]?[ ]?\\([[:digit:]]\\{4\\}\\)?"
-	  "[ ]?\\(\\(?:[[:alpha:]][[:digit:]]\\{1,10\\}\\)\\(?:[[:alpha:]]\\{1,2\\}\\)?\\)?"
-	  "[ ]?[ ]?\\([[:digit:]]\\{4\\}\\)?\\(.*\\)")
-  "Regex that matches all parts of the cutter string.
-
-This very long regex finds up to three cutter parts with dates.
-It also matches the rest of the string, which is called the
-specification.
-
-If you need to change this long regular expression, Emacs'
-‘re-builder’ is very helpful.")
-
-(defvar callnum-lc-spec-regex
-  "^\\(?:\\([a-zA-Z]+\\)[^[:alnum:]]?\\([[:digit:]]+\\)\\)?[ ]?\\(?:\\([a-zA-Z]+\\)[^[:alnum:]]?\\([[:digit:]]+\\)\\)?\\(.*\\)"
-  "Regex that matches parts of the specification string.
-
-In order to sort items when the specification has multiple
-volumes, this is needed. It will match up to two consecutive
-digit strings. When the digits are matched they can be padded and
-sorted correctly.
-
-REVIEW: I don't know how much to pad so I will estimate low right
-now.")
-
-(defun callnum-lc-regex-result-list (string regex)
-  "Return the list of all regex matches from a string.
-
-The result is a list which contains the string from each of the
-match groups. STRING is any string to which a regex will be
-applied. REGEX is a regular expression."
-  (when string
-    (let ((execute-regex (string-match regex string)) ;; Stores match data.
-	  (n-matches (1- (/ (length (match-data)) 2))))
-      (if execute-regex
-	  (cdr (mapcar (lambda (i) (match-string i string)) ;; Retrieves match data.
-		       (number-sequence 0 n-matches)))))))
-
-(defun callnum-lc-named-alist (callnum-part-list part-alist)
-  "Create a named association list of call number parts.
-
-The CALLNUM-PART-LIST is a list of call number parts from
-LC-REGEX-RESULT-LIST. PART-ALIST should be one of the three
-alists: classification, cutter, specification."
-  (let* ((part-list callnum-part-list)
-	 (pad-alist part-alist)
-	 (named-alist nil))
-    (while pad-alist
-      (setq named-alist
-	    (append named-alist
-		    (list (list (car (car pad-alist))
-				(pop part-list)
-				(cadr (pop pad-alist)))))))
-    (append named-alist (list (list "left-overs" (pop part-list))))))
 
 (defun callnum-lc-normalize-callnum (callnum)
   "Normalize a call number.
@@ -613,162 +514,6 @@ recognizes it as a call number. CALLNUM is the call number."
     (callnum-lc-named-alist (callnum-lc-regex-result-list new-callnum
 							  callnum-lc-class-regex)
 			    callnum-lc-class-alist)))
-
-(defun callnum-lc-all-parts (callnum)
-  "Create an alist of call number part names and contents.
-
-Create a named alist where each value is a list that includes the
-call number part as a string and the padding information. All of
-the information is now available to create a padded string.
-CALLNUM is the call number."
-  (let* ((class-alist (callnum-lc-named-alist
-		       (callnum-lc-regex-result-list callnum
-						     callnum-lc-class-regex)
-		       callnum-lc-class-alist))
-	 ;; If the class string does not match, try to normalize the call
-	 ;; number. The normalize function will rerun callnum-lc-named-alist.
-	 (class-alist (if (not (car (cdr (car class-alist))))
-			  (callnum-lc-normalize-callnum callnum)
-			class-alist))
-	 (cutter-alist (callnum-lc-named-alist
-			(callnum-lc-regex-result-list (cadar
-						       (last class-alist))
-						      callnum-lc-cutter-regex)
-			callnum-lc-cutter-alist))
-	 ;; Eliminate all punctuation and spacing in the specification.
-	 (spec-string (if (cadar (last cutter-alist))
-			  (replace-regexp-in-string
-			   "[\\. ,-]" "" (cadar (last cutter-alist)))
-			""))
-	 (specification-alist (list (list "specification"
-					  spec-string
-					  (cadar callnum-lc-specification-alist)))))
-    (append (butlast class-alist 1)
-	    ;; The following line is not needed but it helps when viewing
-	    ;; sorting strings.
-	    (list (list "class-cutter-separator" "!" (list 1 ?! t)))
-	    (butlast cutter-alist 1)
-	    specification-alist)))
-
-(defun callnum-lc-all-parts2 (callnum)
-  "Create an alist of call number part names and contents.
-
-Create a named alist where each value is a list that includes the
-call number part as a string and the padding information. All of
-the information is now available to create a padded string.
-CALLNUM is the call number."
-  (let* ((class-alist (callnum-lc-named-alist
-		       (callnum-lc-regex-result-list callnum
-						     callnum-lc-class-regex)
-		       callnum-lc-class-alist))
-	 ;; If the class string does not match, try to normalize the call
-	 ;; number. The normalize function will rerun callnum-lc-named-alist.
-	 (class-alist (if (not (car (cdr (car class-alist))))
-			  (callnum-lc-normalize-callnum callnum)
-			class-alist))
-	 (cutter-alist (callnum-lc-named-alist (callnum-lc-regex-result-list
-						(cadar (last class-alist))
-						callnum-lc-cutter-regex)
-					       callnum-lc-cutter-alist))
-	 ;; Eliminate all punctuation and spacing in the specification.
-	 (spec-string (if (cadar (last cutter-alist))
-			  (replace-regexp-in-string
-			   "[\\. ,-]" "" (cadar (last cutter-alist)))
-			""))
-	 (specification-alist
-	  (callnum-lc-named-alist
-	   (callnum-lc-regex-result-list spec-string
-					 callnum-lc-spec-regex)
-	   callnum-lc-specification-alist2)))
-    (append (butlast class-alist 1)
-	    ;; The following line is not needed but it helps when viewing
-	    ;; sorting strings.
-	    (list (list "class-cutter-separator" "!" (list 1 ?! t)))
-	    (butlast cutter-alist 1)
-	    specification-alist)))
-
-(defun callnum-lc-all-parts3 (callnum)
-  "Create an alist of call number part names and contents.
-
-Create a named alist where each value is a list that includes the
-call number part as a string and the padding information. All of
-the information is now available to create a padded string.
-CALLNUM is the call number."
-  (let* ((class-alist (callnum-lc-named-alist (callnum-lc-regex-result-list callnum
-									    callnum-lc-class-regex)
-					      callnum-lc-class-alist))
-	 ;; If the class string does not match, try to normalize the call
-	 ;; number. The normalize function will rerun callnum-lc-named-alist.
-	 (class-alist (if (not (car (cdr (car class-alist))))
-			  (callnum-lc-normalize-callnum callnum)
-			class-alist))
-	 (cutter-alist (callnum-lc-named-alist (callnum-lc-regex-result-list
-						(cadar (last class-alist))
-						callnum-lc-cutter-regex)
-					       callnum-lc-cutter-alist))
-	 (specification-alist (callnum-lc-named-alist
-			       (callnum-lc-regex-result-list (cadar (last cutter-alist))
-							     callnum-lc-spec-regex)
-			       callnum-lc-specification-alist2)))
-    (append (butlast class-alist 1)
-	    ;; The following line is not needed but it helps when viewing
-	    ;; sorting strings.
-	    (list (list "class-cutter-separator" "!" (list 1 ?! t)))
-	    (butlast cutter-alist 1)
-	    (butlast specification-alist 1)
-	    ;; Eliminate all punctuation and spacing in the last specification item.
-	    (if (cadar (last specification-alist))
-		;; FIXME: delete this or make it work.
-		;; (list "leftovers"
-		;;       (replace-regexp-in-string
-		;;        "[\\. ,-]" "" (cadar (last specification-alist)))
-		;;       (0 ?0 t))
-		""))))
-
-(defun callnum-lc-pad-concat (callnum-alist)
-  "Pad the call number parts of a named alist.
-
-CALLNUM-ALIST is the alist which comes from CALLNUM-LC-ALL-PARTS.
-The result of this function is a string."
-  (let* ((call-alist callnum-alist)
-	 (new-str nil)
-	 (part nil)
-	 (pad-spec nil))
-    (while (and call-alist
-		(not (string-equal (caar call-alist)
-				   "specification")))
-      (setq part (pop call-alist))
-      (setq pad-spec (caddr part))
-      (if (cadr part)
-	  (setq new-str (concat new-str
-				(callnum-string-pad (cadr part)
-						    (car pad-spec)
-						    (cadr pad-spec)
-						    (caddr pad-spec))))))
-    (setq new-str (concat new-str (cadar call-alist)))
-    new-str))
-
-(defun callnum-lc-make-region-sortable (&optional field-num beg end)
-  "Add a padded LC call number to each line in the region.
-
-FIELD-NUM is the field number. A numeric prefix argument
-specifies in which field the call numbers are located. With no
-prefix argument, it assumes field one contains the call number.
-Interactively, BEG and END are the region.
-
-This function does not account for quoted CSV files, therefore
-make sure to place the call number field before any field with a
-comma. For example, if you have a CSV file with two columns, one
-being the call number field and another being the title field,
-place the call number field to the left of the title field. The
-function should work then. You can alternatively change the user
-variable CALLNUM-SEPARATOR to a character that is not in any of
-your fields, assuming that is in fact the separator in your file."
-  (interactive "*p\nr")
-  (cl-flet ((pad-callnum (callnum)
-	      (callnum-lc-pad-concat
-	       (callnum-lc-all-parts callnum))))
-    (callnum-act-on-region-by-line #'pad-callnum field-num beg end)))
 
 (defun callnum-lc-find-invalid (&optional field-num beg end)
   "Find invalid classification strings in region or on line.
