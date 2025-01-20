@@ -286,6 +286,8 @@ is the field number in which to find the call number."
    (list "sub-office" (list 4 ?0 t)) ;; Subordinate office
    (list "main-series" (list 4 ?0 t))
    (list "related-series" (list 4 ?0 t))
+   (list "stem-other" (list 4 ?0 t))
+   (list "stem-other2" (list 4 ?0 t))
    (list "delimiter" (list 0 ?! t))
    (list "suffix-part1" (list 8 ?0 t))
    (list "suffix-part2" (list 8 ?0 nil))
@@ -305,27 +307,6 @@ is the field number in which to find the call number."
   by a '?' unless you know the Emacs chararcter number and use
   that instead. If LEN is less than STR, then it will
   automatically be changed to the length of STR.")
-
-(defvar callnum-sudoc-rx-old
-  (rx bol
-      (group (or (** 1 4 alpha) (seq "9" digit))) ;; agency
-      (? (= 1 (any blank "-./") (group (** 1 4 digit)))) ;; office
-      (? (any blank "-./") (group (** 1 4 alpha))) ;; Congressional committee
-      (? (any blank "-./") (group (** 1 4 digit))) ;; subordinate office
-      (? (any blank "-./") (group (** 1 4 digit))) ;; main series?
-      (? (any blank "-./") (group (** 1 4 digit))) ;; related series?
-      (seq (? blank) (group ":"))
-      (= 1 (** 0 2 blank) (group (? (* alnum))))
-      (? (? blank) (? (any "-./)")) (group (+ (any "(" alpha))))
-      (? (? blank) (? (any "-./)")) (group (+ (any "(" digit))))
-      (? (? blank) (? (any "-./)")) (group (+ (any "(" alpha))))
-      (? (? blank) (? (any "-./)")) (group (+ (any "(" digit))))
-      (? (? blank) (? (any "-./)")) (group (+ (any "(" alpha))))
-      (? (? blank) (? (any "-./)")) (group (+ (any "(" digit))))
-      (? (? blank) (? (any "-./)")) (group (+ (any "(" digit))))
-      (group (? ")"))
-      )
-  "Regex that matches SuDoc parts.")
 
 (defvar callnum-sudoc-rx
   (rx bol
@@ -347,8 +328,7 @@ is the field number in which to find the call number."
       (? (** 0 2 (any blank "-./")) (group (+ (any "(" alpha))))
       (? (** 0 2 (any blank "-./")) (group (+ (any "(" digit))))
       (group (? ")")))
-  "Regex later try that matches SuDoc parts.")
-
+  "Regex that matches SuDoc parts.")
 
 (defconst callnum-sudoc-examples
   (list "A 13.2:T 73/4" "A 93.2:N 95/3" "A 93.73:76" "A 93.73:89" "A 93.73/2:62" "C 13.58:7564" "C 13.58:7611" "HE 20.4002:AD 9/2" "HE 20.4002:AD 9/5" "HE 20.4002:F 94" "L 36.202:F 15/2" "L 36.202:F 15/2/980" "L 36.202:F 15/3" "Y 1.1/7:109-118" "Y 1.1/7:109-131" "Y 1.1/7:110-6" "Y 1.1/7:110-20" "Y 4.EC 7:C 73/7" "Y 4.EC 7:C 73/10" "Y 4.EC 7:S.HRG.110-646" "Y 4.EC 7:SA 9/2" "Y 4.EC 7:SCH 6" "Y 4.EC 7:SE 2")
@@ -377,6 +357,19 @@ CALLNUM is a string representing a call number."
 	(setq new-callstr (concat new-callstr (string (aref callnum (1+ x)))))))
     new-callstr))
 
+(defun callnum-sudoc-eleminate-punctuation (callnum)
+  "Replace extra spaces and punctuation."
+  (let* ((callnum
+	  (replace-regexp-in-string (rx (or (seq (? space) (any "-/.") (? space))
+					    (seq blank blank (* blank))))
+				    " "
+				    callnum))
+	 (callnum
+	  (replace-regexp-in-string (rx string-start (* space))
+				    ""
+				    callnum)))
+    callnum))
+
 (defun callnum-sudoc-make-region-sortable (&optional field-num beg end)
   "Add a padded call number to each line in the region.
 
@@ -394,10 +387,6 @@ function should work then. You can alternatively change the user
 variable CALLNUM-SEPARATOR to a character that is not in any of
 your fields, assuming that is in fact the separator in your file."
   (interactive "*p\nr")
-  ;; TODO: This pad-callnum is recreated for each call number system.
-  ;; Is there a way to move those out into a separate function? If I
-  ;; do, it must have multiple variables and then it makes this
-  ;; function more than it should be.
   (cl-flet ((pad-callnum (callnum)
 	      (callnum-pad-concat
 	       (callnum-named-alist
@@ -422,17 +411,14 @@ function should work then. You can alternatively change the user
 variable CALLNUM-SEPARATOR to a character that is not in any of
 your fields, assuming that is in fact the separator in your file."
   (interactive "*p\nr")
-  ;; TODO: This pad-callnum is recreated for each call number system.
-  ;; Is there a way to move those out into a separate function? If I
-  ;; do, it must have multiple variables and then it makes this
-  ;; function more than it should be.
   (cl-flet ((pad-callnum (callnum)
-	      (let (callnum-cleaned
-		    (callnum-sudoc-eleminate-punctuation callnum)))
-	      (callnum-pad-concat
-	       (callnum-named-alist
-		(callnum-regex-result-list callnum callnum-sudoc-rx)
-		callnum-sudoc-alist))))
+	      (let ((callnum-cleaned
+		     (callnum-sudoc-correct-space
+		      (callnum-sudoc-eleminate-punctuation callnum))))
+		(callnum-pad-concat
+		 (callnum-named-alist
+		  (callnum-regex-result-list callnum-cleaned callnum-sudoc-rx)
+		  callnum-sudoc-alist)))))
     (callnum-act-on-region-by-line #'pad-callnum field-num beg end)))
 
 
