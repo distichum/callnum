@@ -22,10 +22,8 @@ For the latest version, place the following code in your Emacs init.el file.
 ;; Requires Emacs 29 and git
 (unless (package-installed-p 'callnum)
    (package-vc-install "https://github.com/distichum/callnum.el" nil nil 'callnum))
-(unless (package-installed-p 'callnum)
-   (package-vc-install "https://github.com/distichum/callnum.el"))
 
-(require callnum)
+(require 'callnum)
 #+end_src
 ** Manually
 Add callnum.el to your load-path and require. Something like
