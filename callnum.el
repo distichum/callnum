@@ -211,27 +211,16 @@ FIELD-NUM is the field number."
 		((and (not before) after)
 		 ;; This can happen if someone specifies a field
 		 ;; larger than the number of separators.
-		 (if (eq field-num2 1)
-		     (setq start-end (list (line-beginning-position) after))
-		   (throw 'no-sep
-			  (prin1
-			   (format "Incorrect separator(s) found on line %d."
-				   (line-number-at-pos))))))
+		 (throw 'no-sep
+			(prin1
+			 (format "Incorrect separator(s) found on line %d."
+				 (line-number-at-pos)))))
 		((and before (not after))
 		 (setq start-end (list before (line-end-position))))
 		((and (not before) (not after))
 		 (setq start-end (list (line-beginning-position)
 				       (line-end-position))))))
 	start-end))))
-
-(defun callnum-toolong-error (&optional checker)
-  "Message the user when separators are inconsistent.
-This is only used internally in the ‘callnum--field-bounds’
-function. CHECKER checks to see if something is wrong."
-  (if checker checker
-    (throw 'no-sep
-	   (prin1 (format "Incorrect separator(s) found on line %d."
-			  (line-number-at-pos))))))
 
 (defun callnum-get-callnum-from-line (&optional field-num)
   "Return call number from a line of text in a csv file.
@@ -240,8 +229,9 @@ FIELD-NUM is the field number in which to find the call number."
   (let* ((call-bounds (callnum--field-bounds field-num))
 	 (return-string (buffer-substring-no-properties (car call-bounds)
 							(cadr call-bounds))))
-    (if (string-equal callnum-separator
-		      (substring return-string -1))
+    (if (and (> (length return-string) 0)
+	     (string-equal callnum-separator
+			   (substring return-string -1)))
 	(replace-regexp-in-string "\"" "" (substring return-string 0 -1))
       (replace-regexp-in-string "\"" "" return-string))))
 
@@ -424,9 +414,9 @@ your fields, assuming that is in fact the separator in your file."
 
 ;;; LC functions
 
-(defconst callnum-sudoc-examples
+(defconst callnum-lc-examples
   (list "BR60 .P25 t. 1 fasc. 2x" "BX8608 .U87x reel 1 MOR-5" "BX8608 .U87x reel 10 MOR-150" "BX8608 .U87x reel 2 MOR-22A" "DD3 .M8 reel 11b" "DD3 .M8 reel 12-" "DD3 .M8 reel 15b-17" "DD3 .M8 reel 7c/8a" "DS154.9 .D38 E9 1989 v.1" "DS154.9 .D38 E9 1990 vol.2" "DS154.9 .D38 E9 1991 Vol.10" "E169.1 .A5 no. 1" "E169.1 .A5 no. 10" "E169.1 .A5 no. 100" "E187 .J4x E2361-2363" "E187 .J4x ES1150-1151" "G3301.C5 2005 .G4" "GV854.9 .C7  B67x 1988" "JK526 1928 .S5 1981" "KBB 1x .H3" "M3 .V48 1983 Ser.V vol.1" "M3 .V48 1983 Ser.I vol.10" "M3 .V48 1983 Ser.I vol.19 crit. comm" "M3 .V48 1983 Ser.I vol.3" "PN2020 .S65 Reel 10, no. 41" "PR1901 .A3 1st ser. no. 2, etc." "PR1901 .A3 1st ser. no. 21" "PR2750 .C5 no. 23/24" "PR2888 .L5 no.2" "PR2888 .L6 ser. 6 no. 14" "PR3560 1665a" "PR8633 .S4 no. 50,53-54,56-57,63" "Z4 .A88 1991" "Z52.5 .I24 H87 1986 c.1" "Z52.5 .M52 C63x 1989 C. 2" "Z115.5 .E85 A94 1997" "Z286.L58 R67 1991b" "Z674 .C4 14th 1970" "Z675.U5 A585 1965-66" "Z694.15.A56 A53 1988 Supp.1993" "Z696.U5 H 1986" "Z3507 .A45 n.s. no. 3" "Z7553.M3 S3 1962" "Z8069.2.R88 Index" "Z8301.2 .B69 Suppl." "Z8396.3 .H45 Suppl. 1975" "ZA5055.U6 M67 A47 1992" "ZZZ4 .P5172x 1958" "M652 .B8 op.36 P3 parts 1900" "M1001 .H4 M.97 P7x 1900" "M1029 .R6 K.III 36 1960" "M452 .H42 H. III 75-80 2003" "M119 .H36 HWV430 1965" "M1389.M543 T7 1994 bk.1" "M2 .E68 Bd.97-98 1997" "M23.S9 W55x (1903-4) 1974" "M2125 .H974 (1982) 1985 Suppl." "M3 .S3927 1991 Ser.4 Werkgr.3 Bd.2" "M1010 .H4 H.XVIII.11 .E8 1931" "M1030 .H39 H.VIIe:1 1950" "M254 .T45 TWV41:f1 1960" "M270.R4 T43 TWV41 1988" "M317.B23 S.1039 S3 2002" "Z696 U5 H Hj 1981" "Z696 U5 H 1995" "Z696 U5 HM HX 1980" "JK1059 1st .D6 vol. 1" "BM499.5 .E4 1984 vol.23A" "HD5724 .C72 1964aa" "JK501 .C43 vol.2 no.1" "D769 .A533 vol. 11,pt.2" "LC1044 .O38x Cat.G" "BS1192 .O87 deel20" "HT166 .H373x D75-10" "BX830 787 .W34" "LB1570 .C89x unit 10-12" "M3 .M896 Ser.10 Wkg.28 Abt.1 Bd2" "M3 .S36 Ab.3 Rh.A Bd.8 t.1" "M3 .H46 R.1 Bd.16" "D769 .A533 vol.,pt. 1" "D769 .A533 vol.6,pt.1 vol.1" "AS36.M82 vol.6 no.3-vol.7 no.2" "AP30 .S76 vol.33 no.3" "BX830.1962 .R94 1999" "M38 .M9 K.439b .R7 1900" "M117 .S24 op.28 1913 no.3" "M231 .B23 op. 6, 1936" "M322 .B117 W.161 no.2 1948" "M1507 .S63 bari vol.1")
-  "A list of unusual SuDoc call numbers.
+  "A list of unusual LC call numbers.
 These call numbers give an idea of the diversity of strings that
 callnum.el must handle.")
 
@@ -604,12 +594,12 @@ alists: classification, cutter, specification."
   "Normalize a call number.
 Adds a period in call numbers that do not have one, assuming it
 recognizes it as a call number. CALLNUM is the call number."
-  (let* (;; FIXME: delete the following if function works fine.
-	 ;; (store-data (callnum-lc-regex-result-list
-	 ;; 	      callnum callnum-lc-class-normalize-regex))
-	 (new-callnum (mapconcat 'identity (list (match-string 1 callnum) "."
-						 (match-string 7 callnum))
-				 "")))
+  (let* ((parts (callnum-lc-regex-result-list
+		 callnum callnum-lc-class-normalize-regex))
+	 ;; Group 1 is the whole classification string; group 7 is the
+	 ;; rest of the call number. Splice a period between them so the
+	 ;; normal class regex can parse it.
+	 (new-callnum (concat (nth 0 parts) "." (nth 6 parts))))
     (callnum-lc-named-alist (callnum-lc-regex-result-list new-callnum
 							  callnum-lc-class-regex)
 			    callnum-lc-class-alist)))
@@ -630,10 +620,14 @@ CALLNUM is the call number."
 	 (class-alist (if (not (car (cdr (car class-alist))))
 			  (callnum-lc-normalize-callnum callnum)
 			class-alist))
+	 ;; Strip periods from the cutter string so embedded periods
+	 ;; (e.g. "R.5") normalize to the bare cutter ("R5"). Spaces are
+	 ;; kept so a trailing date still separates.
 	 (cutter-alist (callnum-lc-named-alist
-			(callnum-lc-regex-result-list (cadar
-						       (last class-alist))
-						      callnum-lc-cutter-regex)
+			(callnum-lc-regex-result-list
+			 (replace-regexp-in-string
+			  "\\." "" (or (cadar (last class-alist)) ""))
+			 callnum-lc-cutter-regex)
 			callnum-lc-cutter-alist))
 	 ;; Eliminate all punctuation and spacing in the specification.
 	 (spec-string (if (cadar (last cutter-alist))
@@ -666,8 +660,13 @@ CALLNUM is the call number."
 	 (class-alist (if (not (car (cdr (car class-alist))))
 			  (callnum-lc-normalize-callnum callnum)
 			class-alist))
+	 ;; Strip periods from the cutter string so embedded periods
+	 ;; (e.g. "R.5") normalize to the bare cutter ("R5"). Spaces are
+	 ;; kept so a trailing date still separates.
 	 (cutter-alist (callnum-lc-named-alist (callnum-lc-regex-result-list
-						(cadar (last class-alist))
+						(replace-regexp-in-string
+						 "\\." ""
+						 (or (cadar (last class-alist)) ""))
 						callnum-lc-cutter-regex)
 					       callnum-lc-cutter-alist))
 	 ;; Eliminate all punctuation and spacing in the specification.
@@ -687,66 +686,64 @@ CALLNUM is the call number."
 	    (butlast cutter-alist 1)
 	    specification-alist)))
 
-(defun callnum-lc-all-parts3 (callnum)
-  "Create an alist of call number part names and contents.
-
-Create a named alist where each value is a list that includes the
-call number part as a string and the padding information. All of
-the information is now available to create a padded string.
-CALLNUM is the call number."
-  (let* ((class-alist (callnum-lc-named-alist (callnum-lc-regex-result-list callnum
-									    callnum-lc-class-regex)
-					      callnum-lc-class-alist))
-	 ;; If the class string does not match, try to normalize the call
-	 ;; number. The normalize function will rerun callnum-lc-named-alist.
-	 (class-alist (if (not (car (cdr (car class-alist))))
-			  (callnum-lc-normalize-callnum callnum)
-			class-alist))
-	 (cutter-alist (callnum-lc-named-alist (callnum-lc-regex-result-list
-						(cadar (last class-alist))
-						callnum-lc-cutter-regex)
-					       callnum-lc-cutter-alist))
-	 (specification-alist (callnum-lc-named-alist
-			       (callnum-lc-regex-result-list (cadar (last cutter-alist))
-							     callnum-lc-spec-regex)
-			       callnum-lc-specification-alist2)))
-    (append (butlast class-alist 1)
-	    ;; The following line is not needed but it helps when viewing
-	    ;; sorting strings.
-	    (list (list "class-cutter-separator" "!" (list 1 ?! t)))
-	    (butlast cutter-alist 1)
-	    (butlast specification-alist 1)
-	    ;; Eliminate all punctuation and spacing in the last specification item.
-	    (if (cadar (last specification-alist))
-		;; FIXME: delete this or make it work.
-		;; (list "leftovers"
-		;;       (replace-regexp-in-string
-		;;        "[\\. ,-]" "" (cadar (last specification-alist)))
-		;;       (0 ?0 t))
-		""))))
-
 (defun callnum-lc-pad-concat (callnum-alist)
   "Pad the call number parts of a named alist.
 
 CALLNUM-ALIST is the alist which comes from CALLNUM-LC-ALL-PARTS.
-The result of this function is a string."
-  (let* ((call-alist callnum-alist)
-	 (new-str nil)
-	 (part nil)
-	 (pad-spec nil))
-    (while (and call-alist
-		(not (string-equal (caar call-alist)
-				   "specification")))
-      (setq part (pop call-alist))
-      (setq pad-spec (caddr part))
-      (if (cadr part)
-	  (setq new-str (concat new-str
-				(callnum-string-pad (cadr part)
-						    (car pad-spec)
-						    (cadr pad-spec)
-						    (caddr pad-spec))))))
-    (setq new-str (concat new-str (cadar call-alist)))
-    new-str))
+The result of this function is a string.
+
+Empty fields are padded to their full width when some later field has
+content, so that a missing field (e.g. a missing date between two
+cutters) sorts before a present one.  Trailing empty fields are dropped:
+a call number with fewer parts is a prefix of one with more, and so
+already sorts first."
+  (let ((parts nil) (al callnum-alist) tail)
+    ;; Collect the padded parts up to the optional "specification" entry.
+    (while (and al (not (string-equal (caar al) "specification")))
+      (push (pop al) parts))
+    (setq parts (nreverse parts)
+	  tail (cadar al))                 ; raw "specification" value, if any
+    ;; Index of the last part that actually has content.
+    (let ((last-idx -1) (i 0))
+      (dolist (part parts)
+	(when (and (cadr part) (not (string-empty-p (cadr part))))
+	  (setq last-idx i))
+	(setq i (1+ i)))
+      ;; Emit every part up to and including LAST-IDX; pad empties to
+      ;; full width, append no-pad-spec parts (left-overs) raw.
+      (let ((new-str nil) (j 0))
+	(dolist (part parts)
+	  (when (<= j last-idx)
+	    (let ((pad-spec (caddr part))
+		  (val (or (cadr part) "")))
+	      (setq new-str (concat new-str
+				    (if pad-spec
+					(callnum-string-pad val
+							    (car pad-spec)
+							    (cadr pad-spec)
+							    (caddr pad-spec))
+				      val)))))
+	  (setq j (1+ j)))
+	(concat new-str tail)))))
+
+(defun callnum-lc-sort-key (callnum)
+  "Return a sortable padded key for CALLNUM, with a safe fallback.
+
+Normally this is the padded string from CALLNUM-LC-ALL-PARTS2.  When a
+call number cannot be parsed into a classification at all (for example a
+malformed entry, or a form callnum.el does not yet support), the padded
+result has no real class and would sort to an extreme.  In that case
+fall back to a cleaned, upcased form of the raw string so the entry
+still sorts near its class neighbourhood instead of jumping to the top
+of the list.  Use CALLNUM-LC-FIND-INVALID to locate such entries for
+correction."
+  (let* ((parts (callnum-lc-all-parts2 callnum))
+	 (key (callnum-lc-pad-concat parts)))
+    (if (or (string-empty-p key)
+	    ;; No classification parsed: the key is meaningless.
+	    (null (cadr (assoc "class" parts))))
+	(upcase (replace-regexp-in-string "[^[:alnum:]]" "" callnum))
+      key)))
 
 (defun callnum-lc-make-region-sortable (&optional field-num beg end)
   "Add a padded LC call number to each line in the region.
@@ -766,8 +763,7 @@ variable CALLNUM-SEPARATOR to a character that is not in any of
 your fields, assuming that is in fact the separator in your file."
   (interactive "*p\nr")
   (cl-flet ((pad-callnum (callnum)
-	      (callnum-lc-pad-concat
-	       (callnum-lc-all-parts callnum))))
+	      (callnum-lc-sort-key callnum)))
     (callnum-act-on-region-by-line #'pad-callnum field-num beg end)))
 
 (defun callnum-lc-find-invalid (&optional field-num beg end)
@@ -784,8 +780,11 @@ prefix argument, it assumes field one contains the call number.
 Interactively, BEG and END are the region."
   (interactive "*p\nr")
   (cl-flet ((bad-callnum (callnum)
-	      (callnum-lc-pad-concat
-	       (callnum-lc-all-parts callnum))))
+	      ;; A call number is "invalid" when neither the class regex
+	      ;; nor normalization recovers a class part.
+	      (if (cadr (assoc "class" (callnum-lc-all-parts callnum)))
+		  ""
+		"INVALID")))
     (callnum-act-on-region-by-line #'bad-callnum field-num beg end)))
 
 
@@ -839,6 +838,14 @@ in CALLNUM-DEWEY-RX.")
 	    (group (= 4 digit)
 		   (** 0 2 alpha))))
       ;; Cutter2
+      (? space ;; Space required if there is another cutter.
+	 (group (** 1 3 alpha)
+		(** 1 5 digit)
+		(** 0 4 alpha))
+	 (? space
+	    (group (= 4 digit)
+		   (** 0 2 alpha))))
+      ;; Cutter3
       (? space ;; Space required if there is another cutter.
 	 (group (** 1 3 alpha)
 		(** 1 5 digit)
