@@ -278,16 +278,16 @@ is the field number in which to find the call number."
    (list "related-series" (list 4 ?0 t))
    (list "stem-other" (list 4 ?0 t))
    (list "stem-other2" (list 4 ?0 t))
-   (list "delimiter" (list 0 ?! t))
-   (list "suffix-part1" (list 8 ?0 t))
-   (list "suffix-part2" (list 8 ?0 nil))
-   (list "suffix-part3" (list 8 ?0 t))
-   (list "suffix-part4" (list 8 ?0 nil))
-   (list "suffix-part5" (list 8 ?0 t))
-   (list "suffix-part6" (list 8 ?0 nil))
-   (list "suffix-part7" (list 8 ?0 t))
-   (list "suffix-part8" (list 8 ?0 t))
-   (list "suffix-part9" (list 8 ?0 t)))
+   (list "delimiter" (list 1 ?! t)) ;; emits "!" (sorts below stem padding)
+   (list "suffix-part1" (list 8 ?0 nil)) ;; alpha: pad right
+   (list "suffix-part2" (list 8 ?0 t))   ;; digit: pad left
+   (list "suffix-part3" (list 8 ?0 nil)) ;; alpha
+   (list "suffix-part4" (list 8 ?0 t))   ;; digit
+   (list "suffix-part5" (list 8 ?0 nil)) ;; alpha
+   (list "suffix-part6" (list 8 ?0 t))   ;; digit
+   (list "suffix-part7" (list 8 ?0 nil)) ;; alpha
+   (list "suffix-part8" (list 8 ?0 t))   ;; digit
+   (list "suffix-part9" (list 8 ?0 nil)))
   "Specifies name, length, pad character and direction.
   Each item in the alist has a name in the car and a list of
   details in the cdr. List item one is an integer that directs up
@@ -308,7 +308,7 @@ is the field number in which to find the call number."
       (? (** 0 2 (any blank "-./")) (group (** 1 4 alpha)))
       (? (** 0 2 (any blank "-./")) (group (** 1 4 digit)))
       (? (** 0 2 (any blank "-./")) (group (** 1 4 digit)))
-      (seq (? blank) (group ":"))
+      (seq (? blank) ":" (group "")) ;; colon consumed; empty delimiter group padded to "!"
       (? (** 0 2 (any blank "-./")) (group (+ (any "(" alpha))))
       (? (** 0 2 (any blank "-./")) (group (+ (any "(" digit))))
       (? (** 0 2 (any blank "-./")) (group (+ (any "(" alpha))))
@@ -686,17 +686,39 @@ CALLNUM is the call number."
 	    (butlast cutter-alist 1)
 	    specification-alist)))
 
+(defconst callnum-lc-empty-field-marker "+"
+  "Marker emitted in place of an absent fixed-width LC field.
+
+When a field has no content but a later field does, the sort key must
+still mark that the field is empty so it sorts before a present one.
+Rather than emit the field's full run of padding (e.g. four zeros for a
+missing cutter date, eight for a missing class decimal), emit this single
+character.  It only needs to sort below every content character: after
+up-casing, content is digits (ASCII 48+) and letters (65+), and a class
+decimal begins with `.' (46).  `+' (43) is below all of those, so an
+absent field sorts before any present one without occupying its column.
+
+`+' deliberately sorts below `.', which corrects an ordering that the old
+full-width zero padding got wrong: a bare class number now sorts before
+the same class with a decimal (e.g. QA76 before QA76.5).
+
+`+' is chosen over an obvious choice like `#' because the keys are
+inserted into CSV fields and `#' is the default comment character in
+Emacs `csv-mode' (`csv-comment-start-default'); `+' carries no meaning in
+CSV or csv-mode.")
+
 (defun callnum-lc-pad-concat (callnum-alist)
   "Pad the call number parts of a named alist.
 
 CALLNUM-ALIST is the alist which comes from CALLNUM-LC-ALL-PARTS.
 The result of this function is a string.
 
-Empty fields are padded to their full width when some later field has
-content, so that a missing field (e.g. a missing date between two
-cutters) sorts before a present one.  Trailing empty fields are dropped:
-a call number with fewer parts is a prefix of one with more, and so
-already sorts first."
+A field with content is padded to its full fixed width.  A field that is
+empty but precedes some later field with content collapses to the single
+`callnum-lc-empty-field-marker' instead of a full run of padding, which
+keeps keys short while still sorting a missing field before a present
+one.  Trailing empty fields are dropped: a call number with fewer parts
+is a prefix of one with more, and so already sorts first."
   (let ((parts nil) (al callnum-alist) tail)
     ;; Collect the padded parts up to the optional "specification" entry.
     (while (and al (not (string-equal (caar al) "specification")))
@@ -709,20 +731,27 @@ already sorts first."
 	(when (and (cadr part) (not (string-empty-p (cadr part))))
 	  (setq last-idx i))
 	(setq i (1+ i)))
-      ;; Emit every part up to and including LAST-IDX; pad empties to
-      ;; full width, append no-pad-spec parts (left-overs) raw.
+      ;; Emit every part up to and including LAST-IDX.  An empty
+      ;; fixed-width field collapses to the marker; a present field pads to
+      ;; full width; a free-width or unspecced field (e.g. left-overs) is
+      ;; emitted raw.
       (let ((new-str nil) (j 0))
 	(dolist (part parts)
 	  (when (<= j last-idx)
 	    (let ((pad-spec (caddr part))
 		  (val (or (cadr part) "")))
-	      (setq new-str (concat new-str
-				    (if pad-spec
-					(callnum-string-pad val
-							    (car pad-spec)
-							    (cadr pad-spec)
-							    (caddr pad-spec))
-				      val)))))
+	      (setq new-str
+		    (concat new-str
+			    (cond
+			     ((and (string-empty-p val)
+				   pad-spec (> (car pad-spec) 0))
+			      callnum-lc-empty-field-marker)
+			     (pad-spec
+			      (callnum-string-pad val
+						  (car pad-spec)
+						  (cadr pad-spec)
+						  (caddr pad-spec)))
+			     (t val))))))
 	  (setq j (1+ j)))
 	(concat new-str tail)))))
 

@@ -201,17 +201,17 @@ have keys EQUAL to that neighbor.  `skip' entries are ignored."
          t)))))
 
 
-;;; Focused regression tests for the bugs fixed in callnum.el
+;;; Focused correctness and robustness tests
 
 (ert-deftest callnum-test/sample-vars-distinct ()
-  "The SuDoc and LC example constants must not clobber each other."
+  "The SuDoc and LC example constants are distinct and well-formed."
   (should (string-match-p ":" (car callnum-sudoc-examples)))      ; SuDoc has a colon
   (should (boundp 'callnum-lc-examples))
   (should (string-match-p "\\." (car callnum-lc-examples))))      ; LC sample
 
 (ert-deftest callnum-test/normalize-no-period ()
-  "Period-less LC numbers normalize correctly (no stale match-data)."
-  ;; Pollute match data first to prove independence from global state.
+  "Period-less LC numbers normalize correctly, independent of global match-data."
+  ;; Set global match data first, to confirm parsing does not depend on it.
   (string-match "XYZ" "XYZ")
   (let ((key (callnum-test-key-lc "Z696 U5 H 1995")))
     (should (string-prefix-p "Z" key))     ; class recovered, not garbage

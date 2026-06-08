@@ -25,14 +25,14 @@ A 1.2:D 56 APPLE
 A 1.2:D 56 BAGE.
 A 1.2:D 56 BAGEL
 A 1.2:D 56 BAGEL.
-A 1.2 A:D 56 BAGEL.
+A 1.2/1:D 56 BAGEL.
+A 1.2/1:D-564667
+A 1.2/2:D 56 BAGEL.
 A 1.2/A:D 56 BAGEL.
 A 1.2/a:D 56 BAGEL.
 A 1.2/B:D 56 BAGEL.
 A 1.2/b:D 56 BAGEL.
-A 1.2/2:D 56 BAGEL.
-A 1.2/1:D 56 BAGEL.
-A 1.2/1:D-564667
+A 1.2 A:D 56 BAGEL.
 A 1.2:D 100
 A 1.2:D 57
 A 1.2/:D 57
@@ -50,17 +50,17 @@ A 1.2.45/27-8:
 A 67.18:D-
 P 1.2:
 PREX 1.2:
-Y.4 J 89/1: 101/125 (the period in "Y.4" should be ignored)
 Y1.1/5: 100-216/ App.A
+Y 4.EG 76/2:
 Y 4.F 76/1:
 Y 4.F 76/1-1:
 Y 4.F 76/1-2:
 Y 4.F 76/2:
 Y4.F 76/2:M 57/8/966
-Y 5.F 76/2:
 Y 4.F 77/2:
-Y 4.EG 76/2:
 Y 4/IN 2/11:S.HRG.112-157
+Y.4 J 89/1: 101/125 (the period in "Y.4" should be ignored)
+Y 5.F 76/2:
 
 - Group 2 -
 
