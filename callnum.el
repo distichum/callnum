@@ -563,7 +563,20 @@ about how to change the alist. Non-digit strings will not pad.
 See documentation for LC-SPEC-REGEX for more information.")
 
 (defvar callnum-lc-class-regex
-  "^\\([[:alpha:]]\\{1,3\\}\\)[ ]?\\([0-9]\\{1,4\\}\\)?\\(\\.[0-9]\\{1,8\\}\\)?[ ]?\\([0-9]\\{4\\}\\)?[ ]?\\([0-9]\\{1,4\\}\\)?[ ]?\\([[:alpha:]]\\{1,2\\}\\)?[ ]*\\.\\(.*\\)"
+  (rx bol
+      (group (** 1 3 alpha))               ; class
+      (? " ")
+      (? (group (** 1 4 (any "0-9"))))     ; caption-integer
+      (? (group "." (** 1 8 (any "0-9")))) ; caption-decimal (includes the dot)
+      (? " ")
+      (? (group (= 4 (any "0-9"))))        ; caption-date
+      (? " ")
+      (? (group (** 1 4 (any "0-9"))))     ; caption-ordinal
+      (? " ")
+      (? (group (** 1 2 alpha)))           ; caption-ord-indicator
+      (* " ")
+      "."
+      (group (* nonl)))                    ; rest of the call number
   "Regex that matches the parts of the classification string.
 
 The last match of this string is the rest of the call number.
@@ -582,19 +595,40 @@ If you have such call numbers, run function CALLNUM-LC-NORMALIZE-CALLNUM
 to find them and add a separator.")
 
 (defvar callnum-lc-class-normalize-regex
-  "^\\(\\([[:alpha:]]\\{1,3\\}\\)\\([0-9]\\{1,4\\}\\)?\\(\\.[0-9]\\{1,10\\}\\)?[ ]?\\([0-9]\\{4\\}\\)?[ ]?\\([0-9]\\{1,5\\}[ ]?[[:alpha:]]\\{0,5\\}\\)?\\)\\(.*\\)"
+  (rx bol
+      (group                                 ; whole classification string
+       (group (** 1 3 alpha))
+       (? (group (** 1 4 (any "0-9"))))
+       (? (group "." (** 1 10 (any "0-9"))))
+       (? " ")
+       (? (group (= 4 (any "0-9"))))
+       (? " ")
+       (? (group (** 1 5 (any "0-9")) (? " ") (** 0 5 alpha))))
+      (group (* nonl)))                       ; rest of the call number
   "Recognize the classification string if there is no period.
 
 This is similar but not the same as LC-CLASS-REGEX. This regex is
 only used if the first one finds no class parts.")
 
 (defvar callnum-lc-cutter-regex
-  (concat "^[ ]?\\(\\(?:[[:alpha:]][[:digit:]]\\{1,10\\}\\)\\(?:[[:alpha:]]\\{1,2\\}\\)?\\)?"
-	  "[ ]?[ ]?\\([[:digit:]]\\{4\\}\\)?"
-	  "[ ]?\\(\\(?:[[:alpha:]][[:digit:]]\\{1,10\\}\\)\\(?:[[:alpha:]]\\{1,2\\}\\)?\\)?"
-	  "[ ]?[ ]?\\([[:digit:]]\\{4\\}\\)?"
-	  "[ ]?\\(\\(?:[[:alpha:]][[:digit:]]\\{1,10\\}\\)\\(?:[[:alpha:]]\\{1,2\\}\\)?\\)?"
-	  "[ ]?[ ]?\\([[:digit:]]\\{4\\}\\)?\\(.*\\)")
+  ;; Up to three cutter+date pairs, then the rest (the specification).
+  ;; Each cutter is a letter, 1-10 digits, and an optional 1-2 trailing
+  ;; letters; `(** 0 2 alpha)' is the greedy equivalent of the old
+  ;; \(?:[[:alpha:]]\{1,2\}\)? shy group.
+  (rx bol
+      (? " ")
+      (? (group alpha (** 1 10 digit) (** 0 2 alpha)))   ; cutter-one
+      (? " ") (? " ")
+      (? (group (= 4 digit)))                            ; cutter-one-date
+      (? " ")
+      (? (group alpha (** 1 10 digit) (** 0 2 alpha)))   ; cutter-two
+      (? " ") (? " ")
+      (? (group (= 4 digit)))                            ; cutter-two-date
+      (? " ")
+      (? (group alpha (** 1 10 digit) (** 0 2 alpha)))   ; cutter-three
+      (? " ") (? " ")
+      (? (group (= 4 digit)))                            ; cutter-three-date
+      (group (* nonl)))                                  ; specification
   "Regex that matches all parts of the cutter string.
 
 This very long regex finds up to three cutter parts with dates.
@@ -605,7 +639,13 @@ If you need to change this long regular expression, Emacs'
 ‘re-builder’ is very helpful.")
 
 (defvar callnum-lc-spec-regex
-  "^\\(?:\\([a-zA-Z]+\\)[^[:alnum:]]?\\([[:digit:]]+\\)\\)?[ ]?\\(?:\\([a-zA-Z]+\\)[^[:alnum:]]?\\([[:digit:]]+\\)\\)?\\(.*\\)"
+  ;; Up to two "letters then digits" runs (e.g. "vol" "10"), each digit run
+  ;; padded so volumes sort numerically; then the rest.
+  (rx bol
+      (? (seq (group (+ (any "a-zA-Z"))) (? (not alnum)) (group (+ digit))))
+      (? " ")
+      (? (seq (group (+ (any "a-zA-Z"))) (? (not alnum)) (group (+ digit))))
+      (group (* nonl)))
   "Regex that matches parts of the specification string.
 
 In order to sort items when the specification has multiple
