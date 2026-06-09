@@ -124,7 +124,7 @@ dummy class; relative order then reflects the cutter/spec portion only."
 Upcased to match `callnum-act-on-region-by-line', which the interactive
 commands route through."
   (let ((c (callnum-sudoc-correct-space
-            (callnum-sudoc-eleminate-punctuation cn))))
+            (callnum-sudoc-eliminate-punctuation cn))))
     (upcase
      (callnum-pad-concat
       (callnum-named-alist
@@ -289,6 +289,76 @@ have keys EQUAL to that neighbor.  `skip' entries are ignored."
     (should (eq (verdict "QA76.73 .L37 1999") 'valid))
     (should (eq (verdict "Z696 U5 H 1995") 'valid))
     (should (eq (verdict "!!!garbage!!!") 'invalid))))
+
+;;; End-to-end tests for the `*-sort-region' commands
+
+;; Unlike the order tests above, which check the key functions in
+;; isolation, these drive the interactive `sort-subr'-based commands
+;; through a real buffer.  They assert two properties at once: the lines
+;; end up in the right order, AND the buffer text is only reordered --
+;; no padded key is inserted (the whole point of the sort-region
+;; commands versus `*-make-region-sortable').
+
+(defun callnum-test--sort-buffer (command input field-num)
+  "Insert INPUT lines, run COMMAND on the whole buffer, return result lines.
+
+COMMAND is one of the `callnum-*-sort-region' commands.  FIELD-NUM is
+passed as its field argument.  Region is inactive, so the command sorts
+the whole buffer."
+  (with-temp-buffer
+    (dolist (line input) (insert line "\n"))
+    (funcall command field-num (point-min) (point-max))
+    (split-string (buffer-string) "\n" t)))
+
+(ert-deftest callnum-test/sort-region/lc-end-to-end ()
+  "`callnum-lc-sort-region' reorders lines by LC order without inserting keys."
+  (should (equal (callnum-test--sort-buffer
+                  #'callnum-lc-sort-region
+                  '("QA76.5 .A1,gamma" "QA9 .C3,alpha" "QA76 .B2,beta")
+                  1)
+                 '("QA9 .C3,alpha" "QA76 .B2,beta" "QA76.5 .A1,gamma"))))
+
+(ert-deftest callnum-test/sort-region/sudoc-end-to-end ()
+  "`callnum-sudoc-sort-region' reorders lines by SuDoc order, text intact."
+  (should (equal (callnum-test--sort-buffer
+                  #'callnum-sudoc-sort-region
+                  '("A 93.73:89,x" "A 13.2:T 73/4,y" "A 93.73:76,z")
+                  1)
+                 '("A 13.2:T 73/4,y" "A 93.73:76,z" "A 93.73:89,x"))))
+
+(ert-deftest callnum-test/sort-region/dewey-end-to-end ()
+  "`callnum-dewey-sort-region' reorders lines by Dewey order, text intact."
+  (should (equal (callnum-test--sort-buffer
+                  #'callnum-dewey-sort-region
+                  '("535.6 L661c,p" "398.24 An22u 2010,q" "439.1 Se81c,r")
+                  1)
+                 '("398.24 An22u 2010,q" "439.1 Se81c,r" "535.6 L661c,p"))))
+
+(ert-deftest callnum-test/sort-region/non-destructive ()
+  "Sorting only permutes the input lines; it inserts no padded key text."
+  (let* ((input '("QA76.5 .A1,gamma" "QA9 .C3,alpha" "QA76 .B2,beta"))
+         (output (callnum-test--sort-buffer #'callnum-lc-sort-region input 1)))
+    ;; Same multiset of lines, just reordered -- nothing added or altered.
+    (should (equal (sort (copy-sequence output) #'string<)
+                   (sort (copy-sequence input) #'string<)))
+    ;; No padding-character artifacts (zero-pad, `!' / `+' markers) leaked in.
+    (should-not (cl-some (lambda (l) (string-match-p "[!+]\\|00" l)) output))))
+
+(ert-deftest callnum-test/sort-region/field-num ()
+  "The call number is read from FIELD-NUM, not always field one."
+  (should (equal (callnum-test--sort-buffer
+                  #'callnum-lc-sort-region
+                  '("gamma,QA76.5 .A1" "alpha,QA9 .C3" "beta,QA76 .B2")
+                  2)
+                 '("alpha,QA9 .C3" "beta,QA76 .B2" "gamma,QA76.5 .A1"))))
+
+(ert-deftest callnum-test/sort-region/reverse ()
+  "`callnum-sort-region-by-key' with REVERSE non-nil sorts descending."
+  (with-temp-buffer
+    (insert "QA76.5 .A1,gamma\nQA9 .C3,alpha\nQA76 .B2,beta\n")
+    (callnum-sort-region-by-key #'callnum-lc-sort-key t 1 (point-min) (point-max))
+    (should (equal (split-string (buffer-string) "\n" t)
+                   '("QA76.5 .A1,gamma" "QA76 .B2,beta" "QA9 .C3,alpha")))))
 
 (provide 'callnum-tests)
 ;;; callnum-tests.el ends here

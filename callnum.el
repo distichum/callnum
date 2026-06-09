@@ -112,12 +112,12 @@ match groups. If there are no explicit match groups specified,
 then the whole matching string is returned. STRING is any string
 to which a regex will be applied. REGEX is the applied regular
 expression."
-  (when string
-    (let ((execute-regex (string-match regex string)) ;; Stores match data.
-	  (n-matches (1- (/ (length (match-data)) 2))))
-      (if execute-regex
-	  (cdr (mapcar (lambda (i) (match-string i string)) ;; Retrieves match data.
-		       (number-sequence 0 n-matches)))))))
+  (when (and string (string-match regex string))
+    ;; Read the match count only after a successful match, so it reflects
+    ;; this regex rather than stale global match data.
+    (let ((n-matches (1- (/ (length (match-data)) 2))))
+      (cdr (mapcar (lambda (i) (match-string i string))
+		   (number-sequence 0 n-matches))))))
 
 (defun callnum-named-alist (callnum-part-list part-alist)
   "Create a named association list of call number parts.
@@ -126,16 +126,13 @@ The CALLNUM-PART-LIST is a list of call number parts from
 CALLNUM-REGEX-RESULT-LIST. PART-ALIST should be one of the
 defined variables named CALLNUM-*-ALIST where the asterisk is the
 name of a library classification."
-  (let* ((part-list callnum-part-list)
-	 (pad-alist part-alist)
-	 (named-alist nil))
-    (while pad-alist
-      (setq named-alist
-	    (append named-alist
-		    (list (list (car (car pad-alist))
-				(pop part-list)
-				(cadr (pop pad-alist)))))))
-    (append named-alist (list (list "left-overs" (pop part-list))))))
+  (let ((part-list callnum-part-list)
+	(named-alist nil))
+    (dolist (spec part-alist)
+      (push (list (car spec) (pop part-list) (cadr spec)) named-alist))
+    ;; Whatever is left of PART-LIST after the named slots becomes the
+    ;; trailing "left-overs" entry.
+    (nreverse (cons (list "left-overs" (pop part-list)) named-alist))))
 
 (defun callnum-named-alist-from-regex (string regex part-alist)
   "Match STRING with REGEX and build a named alist with PART-ALIST.
@@ -149,8 +146,8 @@ STR is the string to pad. LEN is the length of the final created
 string, including padding. CHAR is the padding character.
 DIRECTION determines whether to pad left or right. If DIRECTION
 is t, pad left. If nil, pad right. When providing arguments for
-CHAR, it must be preceeded by a '?' unless you know the Emacs
-chararcter number and use that instead. If LEN is less than STR,
+CHAR, it must be preceded by a '?' unless you know the Emacs
+character number and use that instead. If LEN is less than STR,
 then it will automatically be changed to the length of STR."
   (let ((len2 (if (< len (length str))
 		  (length str)
@@ -223,30 +220,23 @@ Empty fields are handled in one of two ways:
 	  parts "")
 	 tail)
       ;; Mark: a marker for each interior empty field, drop trailing empties.
-      (let ((last-idx -1) (i 0))
-	(dolist (part parts)
-	  (when (and (cadr part) (not (string-empty-p (cadr part))))
-	    (setq last-idx i))
-	  (setq i (1+ i)))
-	(let ((new-str nil) (j 0))
-	  (dolist (part parts)
-	    (when (<= j last-idx)
-	      (let ((pad-spec (caddr part))
-		    (val (or (cadr part) "")))
-		(setq new-str
-		      (concat new-str
-			      (cond
-			       ((and (string-empty-p val)
-				     pad-spec (> (car pad-spec) 0))
-				callnum-empty-field-marker)
-			       (pad-spec
-				(callnum-string-pad val
-						    (car pad-spec)
-						    (cadr pad-spec)
-						    (caddr pad-spec)))
-			       (t val))))))
-	    (setq j (1+ j)))
-	  (concat new-str tail))))))
+      ;; Keep only up to the last field that has content; an interior empty
+      ;; fixed-width field collapses to the marker, present fields pad.
+      (let* ((last-idx (cl-position-if
+			(lambda (part) (not (string-empty-p (or (cadr part) ""))))
+			parts :from-end t))
+	     (kept (if last-idx (cl-subseq parts 0 (1+ last-idx)) nil)))
+	(concat
+	 (mapconcat
+	  (lambda (part)
+	    (let ((pad-spec (caddr part)) (val (or (cadr part) "")))
+	      (cond ((and (string-empty-p val) pad-spec (> (car pad-spec) 0))
+		     callnum-empty-field-marker)
+		    (pad-spec (callnum-string-pad val (car pad-spec)
+						  (cadr pad-spec) (caddr pad-spec)))
+		    (t val))))
+	  kept "")
+	 tail)))))
 
 (defun callnum--field-bounds (&optional field-num)
   "Find the start and end position of a field in a buffer.
@@ -269,13 +259,9 @@ FIELD-NUM is the field number."
 					   (- field-num2 1))
 			 (line-beginning-position)))
  	       ;; Point has already moved to after the first
- 	       ;; separater. Find one more.
+ 	       ;; separator. Find one more.
  	       (after (search-forward callnum-separator
 				      (line-end-position) t 1)))
-	  ;; Find the field-num2 instance of the separator.
-	  ;; (after (- (search-forward callnum-separator
-	  ;; 			       (line-end-position) t 1)
-	  ;; 	       1)))
 	  (cond ((and before after)
 		 (setq start-end (list before after)))
 		((and (not before) after)
@@ -298,12 +284,14 @@ FIELD-NUM is the field number in which to find the call number."
   (interactive "*p")
   (let* ((call-bounds (callnum--field-bounds field-num))
 	 (return-string (buffer-substring-no-properties (car call-bounds)
-							(cadr call-bounds))))
-    (if (and (> (length return-string) 0)
-	     (string-equal callnum-separator
-			   (substring return-string -1)))
-	(replace-regexp-in-string "\"" "" (substring return-string 0 -1))
-      (replace-regexp-in-string "\"" "" return-string))))
+							(cadr call-bounds)))
+	 ;; Drop a trailing separator if the field bounds included one.
+	 (trimmed (if (and (> (length return-string) 0)
+			   (string-equal callnum-separator
+					 (substring return-string -1)))
+		      (substring return-string 0 -1)
+		    return-string)))
+    (replace-regexp-in-string "\"" "" trimmed)))
 
 (defun callnum-act-on-region-by-line (function-to-use &optional field-num beg end)
   "Perform a function on every line of the region.
@@ -327,10 +315,37 @@ is the field number in which to find the call number."
 	  (insert callnum-separator)
           (forward-line))))))
 
-;; Benchmarking tests.
-;; (benchmark-run (dotimes (i 10000)
-;; 		 (callnum-sudoc-pad-concat
-;; 		  (callnum-sudoc-divide sudoc-sample-callnum))))
+(defun callnum-sort-region-by-key (key-function &optional reverse field-num beg end)
+  "Sort the lines in a region in place by a computed call number key.
+
+This is the non-destructive alternative to the `*-make-region-sortable'
+commands.  Rather than insert a padded key into each line and leave the
+user to run `sort-lines' and then delete the keys, it calls `sort-subr'
+with a key function: the visible lines are reordered by their normalized
+call number key while the buffer text is left untouched.
+
+KEY-FUNCTION takes a call number string and returns its sort key; the
+key is upcased here, mirroring `callnum-act-on-region-by-line'.  REVERSE,
+when non-nil, sorts in descending order.  FIELD-NUM is the field in which
+to find the call number.  BEG and END bound the region; with no active
+region the whole accessible buffer is sorted."
+  (let ((beg2 (if (region-active-p) beg (point-min)))
+	(end2 (if (region-active-p) end (point-max))))
+    (save-excursion
+      (save-restriction
+	(narrow-to-region beg2 end2)
+	(goto-char (point-min))
+	;; `sort-subr' uses the string the key function returns and
+	;; compares keys with `string<', so these padded keys order the
+	;; lines exactly as `sort-lines' would order the inserted keys.
+	(sort-subr reverse
+		   #'forward-line
+		   #'end-of-line
+		   (lambda ()
+		     (upcase (funcall key-function
+				      (callnum-get-callnum-from-line
+				       field-num)))))))))
+
 
 
 ;;; SuDoc functions
@@ -359,14 +374,14 @@ is the field number in which to find the call number."
    (list "suffix-part8" (list 8 ?0 t))   ;; digit
    (list "suffix-part9" (list 8 ?0 nil)))
   "Specifies name, length, pad character and direction.
-  Each item in the alist has a name in the car and a list of
-  details in the cdr. List item one is an integer that directs up
-  to N many characters to pad. DIRECTION determines whether to
-  pad left or right. If DIRECTION is t, pad left. If nil, pad
-  right. When providing arguments for CHAR, it must be preceeded
-  by a '?' unless you know the Emacs chararcter number and use
-  that instead. If LEN is less than STR, then it will
-  automatically be changed to the length of STR.")
+Each item in the alist has a name in the car and a list of
+details in the cdr. List item one is an integer that directs up
+to N many characters to pad. DIRECTION determines whether to
+pad left or right. If DIRECTION is t, pad left. If nil, pad
+right. When providing arguments for CHAR, it must be preceded
+by a '?' unless you know the Emacs character number and use
+that instead. If LEN is less than STR, then it will
+automatically be changed to the length of STR.")
 
 (defvar callnum-sudoc-rx
   (rx bol
@@ -417,8 +432,8 @@ CALLNUM is a string representing a call number."
 	(setq new-callstr (concat new-callstr (string (aref callnum (1+ x)))))))
     new-callstr))
 
-(defun callnum-sudoc-eleminate-punctuation (callnum)
-  "Replace extra spaces and punctuation."
+(defun callnum-sudoc-eliminate-punctuation (callnum)
+  "Replace extra spaces and punctuation in CALLNUM with single spaces."
   (let* ((callnum
 	  (replace-regexp-in-string (rx (or (seq (? space) (any "-/.") (? space))
 					    (seq blank blank (* blank))))
@@ -429,6 +444,12 @@ CALLNUM is a string representing a call number."
 				    ""
 				    callnum)))
     callnum))
+
+(defun callnum-sudoc-sort-key (callnum)
+  "Return a sortable padded key for the SuDoc CALLNUM."
+  (callnum-pad-concat
+   (callnum-named-alist-from-regex callnum callnum-sudoc-rx
+				   callnum-sudoc-alist)))
 
 (defun callnum-sudoc-make-region-sortable (&optional field-num beg end)
   "Add a padded call number to each line in the region.
@@ -447,11 +468,7 @@ function should work then. You can alternatively change the user
 variable CALLNUM-SEPARATOR to a character that is not in any of
 your fields, assuming that is in fact the separator in your file."
   (interactive "*p\nr")
-  (cl-flet ((pad-callnum (callnum)
-	      (callnum-pad-concat
-	       (callnum-named-alist-from-regex callnum callnum-sudoc-rx
-					       callnum-sudoc-alist))))
-    (callnum-act-on-region-by-line #'pad-callnum field-num beg end)))
+  (callnum-act-on-region-by-line #'callnum-sudoc-sort-key field-num beg end))
 
 (defun callnum-sudoc-make-region-sortable-clean (&optional field-num beg end)
   "Add a padded call number to each line in the region.
@@ -471,13 +488,24 @@ variable CALLNUM-SEPARATOR to a character that is not in any of
 your fields, assuming that is in fact the separator in your file."
   (interactive "*p\nr")
   (cl-flet ((pad-callnum (callnum)
-	      (let ((callnum-cleaned
-		     (callnum-sudoc-correct-space
-		      (callnum-sudoc-eleminate-punctuation callnum))))
-		(callnum-pad-concat
-		 (callnum-named-alist-from-regex callnum-cleaned callnum-sudoc-rx
-						 callnum-sudoc-alist)))))
+	      (callnum-sudoc-sort-key
+	       (callnum-sudoc-correct-space
+		(callnum-sudoc-eliminate-punctuation callnum)))))
     (callnum-act-on-region-by-line #'pad-callnum field-num beg end)))
+
+(defun callnum-sudoc-sort-region (&optional field-num beg end)
+  "Sort SuDoc call numbers in the region in place, without inserting keys.
+
+This is the non-destructive counterpart to
+`callnum-sudoc-make-region-sortable': it reorders the lines by their
+SuDoc sort key using `sort-subr', leaving the buffer text unchanged.
+
+FIELD-NUM is the field number. A numeric prefix argument specifies in
+which field the call numbers are located. With no prefix argument, it
+assumes field one contains the call number. Interactively, BEG and END
+are the region; with no active region the whole buffer is sorted."
+  (interactive "*p\nr")
+  (callnum-sort-region-by-key #'callnum-sudoc-sort-key nil field-num beg end))
 
 
 ;;; LC functions
@@ -507,7 +535,7 @@ callnum.el must handle.")
    (list "caption-ord-indicator" (list 2 ?0 t)))
   "Defines the padding requirements for call number parts.
 
-Change this varible if the padding amounts do not meet your
+Change this variable if the padding amounts do not meet your
 needs. In (list 4 ?0 t), the ‘4’ specifies total padding. The
 ‘?0’ is the padding character. The question mark is required in
 front of any character but is not a padding character. The t
@@ -744,6 +772,20 @@ your fields, assuming that is in fact the separator in your file."
   (interactive "*p\nr")
   (callnum-act-on-region-by-line #'callnum-lc-sort-key field-num beg end))
 
+(defun callnum-lc-sort-region (&optional field-num beg end)
+  "Sort LC call numbers in the region in place, without inserting keys.
+
+This is the non-destructive counterpart to
+`callnum-lc-make-region-sortable': it reorders the lines by their LC
+sort key using `sort-subr', leaving the buffer text unchanged.
+
+FIELD-NUM is the field number. A numeric prefix argument specifies in
+which field the call numbers are located. With no prefix argument, it
+assumes field one contains the call number. Interactively, BEG and END
+are the region; with no active region the whole buffer is sorted."
+  (interactive "*p\nr")
+  (callnum-sort-region-by-key #'callnum-lc-sort-key nil field-num beg end))
+
 (defun callnum-lc-find-invalid (&optional field-num beg end)
   "Find invalid classification strings in region or on line.
 
@@ -789,7 +831,7 @@ callnum.el must handle.")
    (list "specification" (list 10 ?0 nil))) ;; This probably needs to exceed 10.
   "Defines the padding requirements for call number parts.
 
-Change this varible if the padding amounts do not meet your
+Change this variable if the padding amounts do not meet your
 needs. In (list 3 ?0 t), the ‘3’ specifies total padding. The
 ‘?0’ is the padding character. The question mark is required in
 front of any character but is not a padding character. The t
@@ -836,6 +878,12 @@ in CALLNUM-DEWEY-RX.")
 	 (group (* not-newline))))
   "Regex that matches Dewey parts.")
 
+(defun callnum-dewey-sort-key (callnum)
+  "Return a sortable padded key for the Dewey CALLNUM."
+  (callnum-pad-concat
+   (callnum-named-alist-from-regex callnum callnum-dewey-rx
+				   callnum-dewey-alist)))
+
 (defun callnum-dewey-make-region-sortable (&optional field-num beg end)
   "Add a padded LC call number to each line in the region.
 
@@ -853,11 +901,21 @@ function should work then. You can alternatively change the user
 variable CALLNUM-SEPARATOR to a character that is not in any of
 your fields, assuming that is in fact the separator in your file."
   (interactive "*p\nr")
-  (cl-flet ((pad-callnum (callnum)
-	      (callnum-pad-concat
-	       (callnum-named-alist-from-regex callnum callnum-dewey-rx
-					       callnum-dewey-alist))))
-    (callnum-act-on-region-by-line #'pad-callnum field-num beg end)))
+  (callnum-act-on-region-by-line #'callnum-dewey-sort-key field-num beg end))
+
+(defun callnum-dewey-sort-region (&optional field-num beg end)
+  "Sort Dewey call numbers in the region in place, without inserting keys.
+
+This is the non-destructive counterpart to
+`callnum-dewey-make-region-sortable': it reorders the lines by their
+Dewey sort key using `sort-subr', leaving the buffer text unchanged.
+
+FIELD-NUM is the field number. A numeric prefix argument specifies in
+which field the call numbers are located. With no prefix argument, it
+assumes field one contains the call number. Interactively, BEG and END
+are the region; with no active region the whole buffer is sorted."
+  (interactive "*p\nr")
+  (callnum-sort-region-by-key #'callnum-dewey-sort-key nil field-num beg end))
 
 
 ;;; Provide
