@@ -10,35 +10,24 @@ SuDoc call number samples for sorting tests.
 98-2: H.doc.1
 A 1.1:
 A 1.2:C 56
-A 1.2:D 56 (same as below)
-A 1.2: D 56 (same as above)
- A 1.2: D 56 (same as above)
+A 1.2:D 56 ;;same as below
+A 1.2: D 56 ;;same as above
+ A 1.2: D 56 ;;same as above
 A 1.2:D 56/1
+A 1.2:D 56-1
 A 1.2:D 56/1/2
 A 1.2:D 56/2
+A 1.2:D 56-2
 A 1.2:D 56/2/1
 A 1.2:D 56/2/TEST
-A 1.2:D 56/PT.-
-A 1.2:D 56-1
-A 1.2:D 56-2
 A 1.2:D 56 APPLE
 A 1.2:D 56 BAGE.
 A 1.2:D 56 BAGEL
 A 1.2:D 56 BAGEL.
-A 1.2/1:D 56 BAGEL.
-A 1.2/1:D-564667
-A 1.2/2:D 56 BAGEL.
-A 1.2/A:D 56 BAGEL.
-A 1.2/a:D 56 BAGEL.
-A 1.2/B:D 56 BAGEL.
-A 1.2/b:D 56 BAGEL.
-A 1.2 A:D 56 BAGEL.
-A 1.2:D 100
+A 1.2:D 56/PT.-
 A 1.2:D 57
 A 1.2/:D 57
 A 1.2-:D 57
-A 1.2:D 57 V.1
-A 1.2:D 57 V.2
 A 1.2:D 57 10/10
 A 1.2:D 57 10/11
 A 1.2:D 57 2009/10
@@ -46,6 +35,17 @@ A 1.2:D 57 2009/11
 A 1.2:D 57 2010/11
 A 1.2:D 57 2010/11/v
 A 1.2:D 57 2010/11/v-
+A 1.2:D 57 V.1
+A 1.2:D 57 V.2
+A 1.2:D 100
+A 1.2/1:D 56 BAGEL.
+A 1.2/1:D-564667
+A 1.2/2:D 56 BAGEL.
+A 1.2/A:D 56 BAGEL.
+A 1.2 A:D 56 BAGEL.
+A 1.2/a:D 56 BAGEL.
+A 1.2/B:D 56 BAGEL.
+A 1.2/b:D 56 BAGEL.
 A 1.2.45/27-8:
 A 67.18:D-
 P 1.2:
@@ -59,7 +59,7 @@ Y 4.F 76/2:
 Y4.F 76/2:M 57/8/966
 Y 4.F 77/2:
 Y 4/IN 2/11:S.HRG.112-157
-Y.4 J 89/1: 101/125 (the period in "Y.4" should be ignored)
+Y.4 J 89/1: 101/125 ;; the period in "Y.4" should be ignored
 Y 5.F 76/2:
 
 - Group 2 -
@@ -92,8 +92,8 @@ Y 4.EC 7:C 73/7
 Y 4.EC 7:C 73/10
 Y 4.EC 7:S.HRG.110-646
 Y 4.EC 7:SA 9/2
-Y 4.EC 7:SE 2
 Y 4.EC 7:SCH 6
+Y 4.EC 7:SE 2
 
 - Group 3 -
 
@@ -134,3 +134,19 @@ Y 4.G 74/9:S.HRG.110-486
 Y 4.J 89/1-1-13:
 Y 4.W 36:115-SS 02/2
 Y 4.W 36:115-TR 04
+
+- Group 4 -
+
+Z 1.1:9999 ;; whole-number order, varying digit lengths within the 8-digit pad
+Z 1.1:999999
+Z 1.1:1000000
+Z 2.1:73.4 ;; period between numbers is a separator, not a decimal
+Z 2.1:73.10
+Z 4.1:D 5 ;; bare Cutter
+Z 4.1:D 5/1 ;; numeric subdivision sorts before the alpha ones
+Z 4.1:D 5 INTERNATIONAL ;; alpha segment longer than 8 chars
+Z 4.1:D 5 INTERNATIONALE
+Z 4.1:D 5 R4 ;; Cutter with trailing letters
+Z 4.1:D 5 R4A
+Z 4.1:D 5 R4X
+Z 4.1:D 5 R5
