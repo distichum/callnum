@@ -106,7 +106,7 @@ Lines before the first `- group header -' (e.g. the title) are ignored."
 
 (defun callnum-test-key-lc (cn)
   "LC sort key for CN, as produced by `callnum-lc-make-region-sortable'."
-  (callnum-lc-pad-concat (callnum-lc-all-parts cn)))
+  (callnum-pad-concat (callnum-lc-all-parts cn) t))
 
 (defun callnum-test-key-lc2 (cn)
   "LC sort key for CN, mirroring `callnum-lc-make-region-sortable'.
@@ -249,16 +249,16 @@ have keys EQUAL to that neighbor.  `skip' entries are ignored."
                             (lambda (a b) (string-lessp (cdr a) (cdr b)))))))
     (should (equal got want))))
 
-(ert-deftest callnum-test/all-parts2-pads-spec-digits ()
-  "all-parts2 zero-pads spec digit groups so vol.3 sorts before vol.10."
+(ert-deftest callnum-test/all-parts-pads-spec-digits ()
+  "all-parts zero-pads spec digit groups so vol.3 sorts before vol.10."
   (let ((k3  (callnum-test-key-lc2 "M3 .V48 1983 Ser.I vol.3"))
         (k10 (callnum-test-key-lc2 "M3 .V48 1983 Ser.I vol.10")))
     (should (string-match-p "vol0003" k3))
     (should (string-match-p "vol0010" k10))
     (should (string-lessp k3 k10))))
 
-(ert-deftest callnum-test/all-parts2-no-crash-on-samples ()
-  "all-parts2 + pad-concat must not error across all LC examples."
+(ert-deftest callnum-test/all-parts-no-crash-on-samples ()
+  "all-parts + pad-concat must not error across all LC examples."
   (dolist (cn callnum-lc-examples)
     (should (stringp (callnum-test-key-lc2 cn)))))
 
