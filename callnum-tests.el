@@ -97,6 +97,10 @@ Lines before the first `- group header -' (e.g. the title) are ignored."
   (callnum-test--parse-file (expand-file-name "sudoc-sample.txt" callnum-test--dir))
   "Ordered SuDoc sample groups, parsed once from sudoc-sample.txt.")
 
+(defvar callnum-test-dewey-groups
+  (callnum-test--parse-file (expand-file-name "dewey-sample.txt" callnum-test--dir))
+  "Ordered Dewey sample groups, parsed once from dewey-sample.txt.")
+
 
 ;;; Sort-key functions (mirror the cl-flet bodies of the interactive commands)
 
@@ -116,18 +120,32 @@ dummy class; relative order then reflects the cutter/spec portion only."
   (callnum-test-key-lc2 (concat "AA1 ." cn)))
 
 (defun callnum-test-key-sudoc-clean (cn)
-  "SuDoc sort key for CN, as produced by the -clean region command."
+  "SuDoc sort key for CN, as produced by the -clean region command.
+Upcased to match `callnum-act-on-region-by-line', which the interactive
+commands route through."
   (let ((c (callnum-sudoc-correct-space
             (callnum-sudoc-eleminate-punctuation cn))))
-    (callnum-pad-concat
-     (callnum-named-alist
-      (callnum-regex-result-list c callnum-sudoc-rx)
-      callnum-sudoc-alist))))
+    (upcase
+     (callnum-pad-concat
+      (callnum-named-alist
+       (callnum-regex-result-list c callnum-sudoc-rx)
+       callnum-sudoc-alist)))))
+
+(defun callnum-test-key-dewey (cn)
+  "Dewey sort key for CN, as produced by `callnum-dewey-make-region-sortable'.
+Upcased to match `callnum-act-on-region-by-line', which the interactive
+commands route through."
+  (upcase
+   (callnum-pad-concat
+    (callnum-named-alist
+     (callnum-regex-result-list cn callnum-dewey-rx)
+     callnum-dewey-alist))))
 
 (defun callnum-test--key-fn (scheme group-name)
-  "Return the key function for SCHEME (`lc' or `sudoc') and GROUP-NAME."
+  "Return the key function for SCHEME (`lc', `sudoc' or `dewey') and GROUP-NAME."
   (cond
    ((eq scheme 'sudoc) #'callnum-test-key-sudoc-clean)
+   ((eq scheme 'dewey) #'callnum-test-key-dewey)
    ((string-match-p "Cutter number part only" group-name)
     #'callnum-test-key-lc-cutter)
    (t #'callnum-test-key-lc2)))           ; mirror the wired-in command
@@ -182,7 +200,8 @@ have keys EQUAL to that neighbor.  `skip' entries are ignored."
     (string-trim x "-+" "-+")))
 
 (dolist (spec (list (cons 'lc    callnum-test-lc-groups)
-                    (cons 'sudoc callnum-test-sudoc-groups)))
+                    (cons 'sudoc callnum-test-sudoc-groups)
+                    (cons 'dewey callnum-test-dewey-groups)))
   (let ((scheme (car spec)) (groups (cdr spec)))
     (dolist (grp groups)
       (let* ((gname (car grp))
@@ -193,9 +212,10 @@ have keys EQUAL to that neighbor.  `skip' entries are ignored."
             ,(format "Entries of group %S in the %s sample file must be in sorted order."
                      gname scheme)
             (let ((violations (callnum-test--run-group ',scheme
-                                                       (if (eq ',scheme 'lc)
-                                                           callnum-test-lc-groups
-                                                         callnum-test-sudoc-groups)
+                                                       (cond
+                                                        ((eq ',scheme 'lc) callnum-test-lc-groups)
+                                                        ((eq ',scheme 'dewey) callnum-test-dewey-groups)
+                                                        (t callnum-test-sudoc-groups))
                                                        ,gname)))
               (should (null violations))))
          t)))))

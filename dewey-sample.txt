@@ -1,0 +1,31 @@
+- Dewey sort sample; Created by AI -
+
+300 A11 2015 ;; Base number, three-digit integer
+300.1 A11 ;; .1 comes after 300
+300.12 A11 ;; .12 comes after .1 digit-by-digit
+300.2 A11 ;; .2 comes after .12 because 2 > 1
+300.2 A11 2020 ;; Year (numeric) sorts before volume because digits precede letters
+300.2 A11 2026 ;; Chronological order for years
+300.2 A11 v.1 ;; Volume (letter v) sorts after the years above
+300.2 A11 v.2 ;; Volume 2 follows Volume 1
+300.2 A11 v.2 c.2 ;; Copy 2 of Volume 2 follows Copy 1/plain Volume 2
+300.2 A113 ;; Cutter .113 comes after Cutter .11
+300.2 A2 ;; Cutter .2 comes after Cutter .113 because 2 > 1
+300.2 A25 ;; Cutter .25 comes after Cutter .2
+300.2 B14 ;; Alphabetical Cutter change from A to B
+540 C43 ;; New Dewey class integer
+540.03 C43 ;; .03 comes before .7
+540.7 C43 ;; .7 comes after .03
+540.71 C43 ;; .71 comes after .7
+540.713 C43 ;; .713 comes after .71
+540.713 G3 ;; Cutter G3 comes after Cutter C43 (G > C alphabetically)
+540.713 G32 ;; Cutter .32 follows Cutter .3
+540.713 G4 ;; Cutter .4 follows Cutter .32
+540.72 C43 ;; .72 comes after .713 because 2 > 1
+616.07 H88 ;; New Dewey class
+616.07 H88 2018 ;; Year modifier
+616.079 H88 ;; .079 comes after .07
+616.1 H88 ;; .1 comes after .079 because 1 > 0
+616.12 H88 ;; .12 follows .1
+616.12 H882 ;; Cutter .882 follows Cutter .88
+616.12 H9 ;; Cutter .9 follows Cutter .882
