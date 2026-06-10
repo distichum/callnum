@@ -6,11 +6,12 @@
 
 ;; ERT test suite for callnum.el.
 ;;
-;; The ordered sample files `lc-sample.txt' and `sudoc-sample.txt' are
-;; the ground-truth oracle: each is split into groups of call numbers
-;; that are already in correct shelf order.  At load time we parse those
-;; files ONCE into `callnum-test-lc-groups' and `callnum-test-sudoc-groups'
-;; (we never reparse during the test run).  The core property tested is:
+;; The ordered sample files `lc-sample.txt', `sudoc-sample.txt' and
+;; `dewey-sample.txt' are the ground-truth oracle: each is split into
+;; groups of call numbers that are already in correct shelf order.  At
+;; load time we parse those files ONCE into `callnum-test-lc-groups',
+;; `callnum-test-sudoc-groups' and `callnum-test-dewey-groups' (we never
+;; reparse during the test run).  The core property tested is:
 ;;
 ;;   pad each entry -> the resulting sort keys are non-decreasing in the
 ;;   file's order, and entries marked "(same as above/below)" produce
@@ -102,22 +103,21 @@ Lines before the first `- group header -' (e.g. the title) are ignored."
   "Ordered Dewey sample groups, parsed once from dewey-sample.txt.")
 
 
-;;; Sort-key functions (mirror the cl-flet bodies of the interactive commands)
+;;; Sort-key functions (thin wrappers over the real command key functions)
 
 (defun callnum-test-key-lc (cn)
-  "LC sort key for CN, as produced by `callnum-lc-make-region-sortable'."
-  (callnum-pad-concat (callnum-lc-all-parts cn) t))
-
-(defun callnum-test-key-lc2 (cn)
-  "LC sort key for CN, mirroring `callnum-lc-make-region-sortable'.
-Uses the digit-aware specification with the malformed-input fallback."
+  "LC sort key for CN, as produced by the LC region commands.
+Delegates to the real `callnum-lc-sort-key' (digit-aware specification,
+malformed-input fallback, case-folding) rather than re-implementing the
+pad pipeline, so the sample-file order tests exercise the same code path
+the interactive commands do."
   (callnum-lc-sort-key cn))
 
 (defun callnum-test-key-lc-cutter (cn)
   "Sort key for a cutter-only fixture CN.
 Cutter-only strings have no classification, so sort them under a constant
 dummy class; relative order then reflects the cutter/spec portion only."
-  (callnum-test-key-lc2 (concat "AA1 ." cn)))
+  (callnum-test-key-lc (concat "AA1 ." cn)))
 
 (defun callnum-test-key-sudoc-clean (cn)
   "SuDoc sort key for CN, as produced by the -clean region commands.
@@ -140,7 +140,7 @@ exercise the same code path the interactive commands do."
    ((eq scheme 'dewey) #'callnum-test-key-dewey)
    ((string-match-p "Cutter number part only" group-name)
     #'callnum-test-key-lc-cutter)
-   (t #'callnum-test-key-lc2)))           ; mirror the wired-in command
+   (t #'callnum-test-key-lc)))            ; mirror the wired-in command
 
 
 ;;; Order-checking
@@ -194,7 +194,12 @@ have keys EQUAL to that neighbor.  `skip' entries are ignored."
 (dolist (spec (list (cons 'lc    callnum-test-lc-groups)
                     (cons 'sudoc callnum-test-sudoc-groups)
                     (cons 'dewey callnum-test-dewey-groups)))
-  (let ((scheme (car spec)) (groups (cdr spec)))
+  (let* ((scheme (car spec))
+         (groups (cdr spec))
+         ;; The defvar holding GROUPS; re-fetched at test-run time so the
+         ;; generated test bodies stay small instead of embedding the
+         ;; parsed structure as a literal.
+         (groups-var (intern (format "callnum-test-%s-groups" scheme))))
     (dolist (grp groups)
       (let* ((gname (car grp))
              (test-name (intern (format "callnum-test/%s/order/%s"
@@ -203,12 +208,8 @@ have keys EQUAL to that neighbor.  `skip' entries are ignored."
          `(ert-deftest ,test-name ()
             ,(format "Entries of group %S in the %s sample file must be in sorted order."
                      gname scheme)
-            (let ((violations (callnum-test--run-group ',scheme
-                                                       (cond
-                                                        ((eq ',scheme 'lc) callnum-test-lc-groups)
-                                                        ((eq ',scheme 'dewey) callnum-test-dewey-groups)
-                                                        (t callnum-test-sudoc-groups))
-                                                       ,gname)))
+            (let ((violations (callnum-test--run-group
+                               ',scheme (symbol-value ',groups-var) ,gname)))
               (should (null violations))))
          t)))))
 
@@ -219,7 +220,8 @@ have keys EQUAL to that neighbor.  `skip' entries are ignored."
   "The SuDoc and LC example constants are distinct and well-formed."
   (should (string-match-p ":" (car callnum-sudoc-examples)))      ; SuDoc has a colon
   (should (boundp 'callnum-lc-examples))
-  (should (string-match-p "\\." (car callnum-lc-examples))))      ; LC sample
+  (should (string-match-p "\\." (car callnum-lc-examples)))       ; LC sample
+  (should-not (equal callnum-sudoc-examples callnum-lc-examples)))
 
 (ert-deftest callnum-test/normalize-no-period ()
   "Period-less LC numbers normalize correctly, independent of global match-data."
@@ -243,8 +245,8 @@ have keys EQUAL to that neighbor.  `skip' entries are ignored."
 
 (ert-deftest callnum-test/all-parts-pads-spec-digits ()
   "all-parts zero-pads spec digit groups so vol.3 sorts before vol.10."
-  (let ((k3  (callnum-test-key-lc2 "M3 .V48 1983 Ser.I vol.3"))
-        (k10 (callnum-test-key-lc2 "M3 .V48 1983 Ser.I vol.10")))
+  (let ((k3  (callnum-test-key-lc "M3 .V48 1983 Ser.I vol.3"))
+        (k10 (callnum-test-key-lc "M3 .V48 1983 Ser.I vol.10")))
     (should (string-match-p "vol0003" k3))
     (should (string-match-p "vol0010" k10))
     (should (string-lessp k3 k10))))
@@ -252,12 +254,17 @@ have keys EQUAL to that neighbor.  `skip' entries are ignored."
 (ert-deftest callnum-test/all-parts-no-crash-on-samples ()
   "all-parts + pad-concat must not error across all LC examples."
   (dolist (cn callnum-lc-examples)
-    (should (stringp (callnum-test-key-lc2 cn)))))
+    (should (stringp (callnum-test-key-lc cn)))))
 
 (ert-deftest callnum-test/dewey-rx-alist-aligned ()
   "Dewey regex capture-group count must match the Dewey alist length."
   (should (= (regexp-opt-depth callnum-dewey-rx)
              (length callnum-dewey-alist))))
+
+(ert-deftest callnum-test/sudoc-rx-alist-aligned ()
+  "SuDoc regex capture-group count must match the SuDoc alist length."
+  (should (= (regexp-opt-depth callnum-sudoc-rx)
+             (length callnum-sudoc-alist))))
 
 (ert-deftest callnum-test/dewey-spec-slot ()
   "A trailing Dewey specification lands in the `specification' slot."
