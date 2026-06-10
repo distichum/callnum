@@ -466,7 +466,12 @@ CALLNUM is a string representing a call number."
 
 (defun callnum-sudoc-sort-key (callnum)
   "Return a sortable padded key for the SuDoc CALLNUM.
-The key is upcased so call numbers shelve case-insensitively."
+The key is upcased so call numbers shelve case-insensitively.
+At a colliding sub-field the regex distinguishes only digit groups
+from alpha groups, sorting digit-leading before alpha-leading, so
+dates and numbers (by value) sort before letters and words
+(alphabetically); it does not implement a four-way date < letters
+< numbers < words order."
   (upcase
    (callnum-pad-concat
     (callnum-named-alist-from-regex callnum callnum-sudoc-rx
