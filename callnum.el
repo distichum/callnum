@@ -114,10 +114,18 @@ to which a regex will be applied. REGEX is the applied regular
 expression."
   (when (and string (string-match regex string))
     ;; Read the match count only after a successful match, so it reflects
-    ;; this regex rather than stale global match data.
-    (let ((n-matches (1- (/ (length (match-data)) 2))))
-      (cdr (mapcar (lambda (i) (match-string i string))
-		   (number-sequence 0 n-matches))))))
+    ;; this regex rather than stale global match data.  Build the group
+    ;; list in a single pass, consing only the result.  Interior groups
+    ;; that did not participate yield nil and must be kept so later groups
+    ;; stay positionally aligned for `callnum-named-alist', so we cannot
+    ;; stop early on the first nil.
+    (let ((n-matches (1- (/ (length (match-data)) 2)))
+	  (res nil)
+	  (i 1))
+      (while (<= i n-matches)
+	(push (match-string i string) res)
+	(setq i (1+ i)))
+      (nreverse res))))
 
 (defun callnum-named-alist (callnum-part-list part-alist)
   "Create a named association list of call number parts.
@@ -149,12 +157,14 @@ is t, pad left. If nil, pad right. When providing arguments for
 CHAR, it must be preceded by a '?' unless you know the Emacs
 character number and use that instead. If LEN is less than STR,
 then it will automatically be changed to the length of STR."
-  (let ((len2 (if (< len (length str))
-		  (length str)
-		len)))
-    (if direction
-	(store-substring (make-string len2 char) (- len2 (length str)) str)
-      (store-substring (make-string len2 char) 0 str))))
+  (let ((slen (length str)))
+    ;; Nothing to add when the string already fills (or overflows) the
+    ;; field, so return it untouched and skip building a padding string.
+    (if (>= slen len)
+	str
+      (if direction
+	  (store-substring (make-string len char) (- len slen) str)
+	(store-substring (make-string len char) 0 str)))))
 
 (defconst callnum-empty-field-marker "+"
   "Marker emitted in place of an absent fixed-width call number field.
@@ -448,16 +458,11 @@ CALLNUM is a string representing a call number."
 
 (defun callnum-sudoc-eliminate-punctuation (callnum)
   "Replace extra spaces and punctuation in CALLNUM with single spaces."
-  (let* ((callnum
-	  (replace-regexp-in-string (rx (or (seq (? space) (any "-/.") (? space))
-					    (seq blank blank (* blank))))
-				    " "
-				    callnum))
-	 (callnum
-	  (replace-regexp-in-string (rx string-start (* space))
-				    ""
-				    callnum)))
-    callnum))
+  (string-trim-left
+   (replace-regexp-in-string (rx (or (seq (? space) (any "-/.") (? space))
+				     (seq blank blank (* blank))))
+			     " "
+			     callnum)))
 
 (defun callnum-sudoc-sort-key (callnum)
   "Return a sortable padded key for the SuDoc CALLNUM.
@@ -749,9 +754,10 @@ CALLNUM is the call number."
 			 "\\." "" (or (cadar (last class-alist)) ""))
 			callnum-lc-cutter-regex callnum-lc-cutter-alist))
 	 ;; Eliminate all punctuation and spacing in the specification.
-	 (spec-string (if (cadar (last cutter-alist))
+	 (cutter-leftover (cadar (last cutter-alist)))
+	 (spec-string (if cutter-leftover
 			  (replace-regexp-in-string
-			   "[\\. ,-]" "" (cadar (last cutter-alist)))
+			   "[\\. ,-]" "" cutter-leftover)
 			""))
 	 (specification-alist
 	  (callnum-named-alist-from-regex
