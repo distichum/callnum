@@ -366,5 +366,53 @@ group in sudoc-sample.txt.)"
     (should (equal (split-string (buffer-string) "\n" t)
                    '("QA76.5 .A1,gamma" "QA76 .B2,beta" "QA9 .C3,alpha")))))
 
+;;; SuDoc whitespace normalization (correct-space / eliminate-punctuation)
+
+(ert-deftest callnum-test/sudoc-correct-space/boundaries ()
+  "A space is inserted at every alpha<->digit boundary, and only there."
+  (should (equal (callnum-sudoc-correct-space "A1") "A 1"))
+  (should (equal (callnum-sudoc-correct-space "1A") "1 A"))
+  (should (equal (callnum-sudoc-correct-space "AB12CD") "AB 12 CD"))
+  (should (equal (callnum-sudoc-correct-space "A1A1") "A 1 A 1"))
+  ;; Already-correct spacing and single-class strings are left untouched.
+  (should (equal (callnum-sudoc-correct-space "A 1") "A 1"))
+  (should (equal (callnum-sudoc-correct-space "ABC") "ABC"))
+  (should (equal (callnum-sudoc-correct-space "123") "123")))
+
+(ert-deftest callnum-test/sudoc-correct-space/colon-space ()
+  "A space immediately after a colon is removed; colon is not a boundary."
+  (should (equal (callnum-sudoc-correct-space "C 1.2: D 56") "C 1.2:D 56"))
+  (should (equal (callnum-sudoc-correct-space "X: Y") "X:Y")))
+
+(ert-deftest callnum-test/sudoc-correct-space/edge-cases ()
+  "Empty, single-character and lone-colon inputs do not error."
+  (should (equal (callnum-sudoc-correct-space "") ""))
+  (should (equal (callnum-sudoc-correct-space "A") "A"))
+  (should (equal (callnum-sudoc-correct-space ":") ":")))
+
+(ert-deftest callnum-test/sudoc-correct-space/combining-mark ()
+  "A combining mark is treated as a non-letter: it stays attached to its
+digit and gets no surrounding spaces (only the real alpha/digit boundary
+does).  This pins the deliberate ASCII-class behavior of the rewrite,
+which differs from the old `[[:alpha:]]'-based code on such corrupt input."
+  (let ((mark (string ?\N{COMBINING LOW LINE})))   ; U+0332
+    (should (equal (callnum-sudoc-correct-space (concat "A8" mark "0"))
+                   (concat "A 8" mark "0")))))
+
+(ert-deftest callnum-test/sudoc-eliminate-punctuation/whitespace ()
+  "Runs of blanks collapse, leading blanks are stripped, and -/. become spaces."
+  (should (equal (callnum-sudoc-eliminate-punctuation "A   B") "A B"))
+  (should (equal (callnum-sudoc-eliminate-punctuation "   X") "X"))
+  (should (equal (callnum-sudoc-eliminate-punctuation "A.B") "A B"))
+  (should (equal (callnum-sudoc-eliminate-punctuation "A/B") "A B")))
+
+(ert-deftest callnum-test/sudoc-sort-key-clean/fdlp-spacing-variants ()
+  "FDLP spacing variants of one call number collapse onto the same key:
+a space after the colon and leading whitespace must not change the key."
+  (let ((k (callnum-sudoc-sort-key-clean "A 1.2:D 56")))
+    (should (equal (callnum-sudoc-sort-key-clean "A 1.2: D 56") k))
+    (should (equal (callnum-sudoc-sort-key-clean " A 1.2: D 56") k))
+    (should (equal (callnum-sudoc-sort-key-clean "A 1.2:D 56") k))))
+
 (provide 'callnum-tests)
 ;;; callnum-tests.el ends here

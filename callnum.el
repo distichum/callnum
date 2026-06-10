@@ -419,19 +419,32 @@ from [:alpha:] to [:digit:] or [:digit:] to [:alpha:]. Second,
 there should not be a space after the colon.
 
 CALLNUM is a string representing a call number."
-  (let* ((new-callstr (if (zerop (length callnum)) "" (substring callnum 0 1))))
-    (dotimes (x (1- (length callnum)))
-      ;; Add spaces when an alpha string changes to digits or when
-      ;; digits turn to alphas.
-      (when (or (and (string-match "[[:alpha:]]" (substring callnum x (1+ x)))
-		     (string-match "[[:digit:]]" (substring callnum (+ x 1) (+ x 2))))
-		(and (string-match "[[:digit:]]" (substring callnum x (1+ x)))
-		     (string-match "[[:alpha:]]" (substring callnum (+ x 1) (+ x 2)))))
-	(setq new-callstr (concat new-callstr " ")))
-      ;; Don't concat a space after the colon if there is one.
-      (when (not (string-match ": " (substring callnum x (+ x 2))))
-	(setq new-callstr (concat new-callstr (string (aref callnum (1+ x)))))))
-    new-callstr))
+  ;; Single O(n) pass over the original characters, accumulating the result
+  ;; as a reversed list of characters that one `concat' joins at the end.
+  ;; The previous version rebuilt the whole accumulator with `concat' on
+  ;; every character (O(n^2)) and classified characters with
+  ;; `substring'+`string-match'; together those dominated key generation.
+  ;; SuDoc call numbers are ASCII, so the [:alpha:]/[:digit:] tests reduce
+  ;; to plain range checks.
+  (let ((len (length callnum)))
+    (if (zerop len)
+	""
+      (let ((out (list (aref callnum 0)))	; first char is always kept
+	    (x 0))
+	(while (< x (1- len))
+	  (let ((a (aref callnum x))
+		(b (aref callnum (1+ x))))
+	    ;; Insert a space at an alpha<->digit boundary.
+	    (when (or (and (or (<= ?A a ?Z) (<= ?a a ?z))
+                           (<= ?0 b ?9))
+		      (and (<= ?0 a ?9)
+                           (or (<= ?A b ?Z) (<= ?a b ?z))))
+	      (push ?\s out))
+	    ;; Append B, except when it is a space directly after a colon.
+	    (unless (and (eq a ?:) (eq b ?\s))
+	      (push b out)))
+	  (setq x (1+ x)))
+	(concat (nreverse out))))))
 
 (defun callnum-sudoc-eliminate-punctuation (callnum)
   "Replace extra spaces and punctuation in CALLNUM with single spaces."
