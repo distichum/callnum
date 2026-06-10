@@ -120,26 +120,18 @@ dummy class; relative order then reflects the cutter/spec portion only."
   (callnum-test-key-lc2 (concat "AA1 ." cn)))
 
 (defun callnum-test-key-sudoc-clean (cn)
-  "SuDoc sort key for CN, as produced by the -clean region command.
-Upcased to match `callnum-act-on-region-by-line', which the interactive
-commands route through."
-  (let ((c (callnum-sudoc-correct-space
-            (callnum-sudoc-eliminate-punctuation cn))))
-    (upcase
-     (callnum-pad-concat
-      (callnum-named-alist
-       (callnum-regex-result-list c callnum-sudoc-rx)
-       callnum-sudoc-alist)))))
+  "SuDoc sort key for CN, as produced by the -clean region commands.
+Delegates to the real `callnum-sudoc-sort-key-clean' rather than
+re-implementing the clean+pad pipeline, so the sample-file order tests
+exercise the same code path the interactive commands do."
+  (callnum-sudoc-sort-key-clean cn))
 
 (defun callnum-test-key-dewey (cn)
-  "Dewey sort key for CN, as produced by `callnum-dewey-make-region-sortable'.
-Upcased to match `callnum-act-on-region-by-line', which the interactive
-commands route through."
-  (upcase
-   (callnum-pad-concat
-    (callnum-named-alist
-     (callnum-regex-result-list cn callnum-dewey-rx)
-     callnum-dewey-alist))))
+  "Dewey sort key for CN, as produced by the Dewey region commands.
+Delegates to the real `callnum-dewey-sort-key' rather than
+re-implementing the pad pipeline, so the sample-file order tests
+exercise the same code path the interactive commands do."
+  (callnum-dewey-sort-key cn))
 
 (defun callnum-test--key-fn (scheme group-name)
   "Return the key function for SCHEME (`lc', `sudoc' or `dewey') and GROUP-NAME."

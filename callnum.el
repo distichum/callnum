@@ -310,8 +310,8 @@ is the field number in which to find the call number."
 	(goto-char (point-min))
 	(while (not (eobp))
 	  (goto-char (line-beginning-position))
-          (insert (upcase (funcall function-to-use
-				   (callnum-get-callnum-from-line field-num))))
+          (insert (funcall function-to-use
+			   (callnum-get-callnum-from-line field-num)))
 	  (insert callnum-separator)
           (forward-line))))))
 
@@ -325,10 +325,11 @@ with a key function: the visible lines are reordered by their normalized
 call number key while the buffer text is left untouched.
 
 KEY-FUNCTION takes a call number string and returns its sort key; the
-key is upcased here, mirroring `callnum-act-on-region-by-line'.  REVERSE,
-when non-nil, sorts in descending order.  FIELD-NUM is the field in which
-to find the call number.  BEG and END bound the region; with no active
-region the whole accessible buffer is sorted."
+key functions upcase their own result for case-insensitive shelf order,
+so this no longer upcases here.  REVERSE, when non-nil, sorts in
+descending order.  FIELD-NUM is the field in which to find the call
+number.  BEG and END bound the region; with no active region the whole
+accessible buffer is sorted."
   (let ((beg2 (if (region-active-p) beg (point-min)))
 	(end2 (if (region-active-p) end (point-max))))
     (save-excursion
@@ -342,9 +343,9 @@ region the whole accessible buffer is sorted."
 		   #'forward-line
 		   #'end-of-line
 		   (lambda ()
-		     (upcase (funcall key-function
-				      (callnum-get-callnum-from-line
-				       field-num)))))))))
+		     (funcall key-function
+			      (callnum-get-callnum-from-line
+			       field-num))))))))
 
 
 
@@ -446,10 +447,12 @@ CALLNUM is a string representing a call number."
     callnum))
 
 (defun callnum-sudoc-sort-key (callnum)
-  "Return a sortable padded key for the SuDoc CALLNUM."
-  (callnum-pad-concat
-   (callnum-named-alist-from-regex callnum callnum-sudoc-rx
-				   callnum-sudoc-alist)))
+  "Return a sortable padded key for the SuDoc CALLNUM.
+The key is upcased so call numbers shelve case-insensitively."
+  (upcase
+   (callnum-pad-concat
+    (callnum-named-alist-from-regex callnum callnum-sudoc-rx
+				    callnum-sudoc-alist))))
 
 (defun callnum-sudoc-sort-key-clean (callnum)
   "Return a sortable padded key for SuDoc CALLNUM after normalizing it.
@@ -761,11 +764,13 @@ of the list.  Use CALLNUM-LC-FIND-INVALID to locate such entries for
 correction."
   (let* ((parts (callnum-lc-all-parts callnum))
 	 (key (callnum-pad-concat parts t)))
-    (if (or (string-empty-p key)
-	    ;; No classification parsed: the key is meaningless.
-	    (null (cadr (assoc "class" parts))))
-	(upcase (replace-regexp-in-string "[^[:alnum:]]" "" callnum))
-      key)))
+    ;; Upcase so call numbers shelve case-insensitively.
+    (upcase
+     (if (or (string-empty-p key)
+	     ;; No classification parsed: the key is meaningless.
+	     (null (cadr (assoc "class" parts))))
+	 (replace-regexp-in-string "[^[:alnum:]]" "" callnum)
+       key))))
 
 (defun callnum-lc-make-region-sortable (&optional field-num beg end)
   "Add a padded LC call number to each line in the region.
@@ -893,10 +898,12 @@ in CALLNUM-DEWEY-RX.")
   "Regex that matches Dewey parts.")
 
 (defun callnum-dewey-sort-key (callnum)
-  "Return a sortable padded key for the Dewey CALLNUM."
-  (callnum-pad-concat
-   (callnum-named-alist-from-regex callnum callnum-dewey-rx
-				   callnum-dewey-alist)))
+  "Return a sortable padded key for the Dewey CALLNUM.
+The key is upcased so call numbers shelve case-insensitively."
+  (upcase
+   (callnum-pad-concat
+    (callnum-named-alist-from-regex callnum callnum-dewey-rx
+				    callnum-dewey-alist))))
 
 (defun callnum-dewey-make-region-sortable (&optional field-num beg end)
   "Add a padded LC call number to each line in the region.
