@@ -319,12 +319,19 @@ the whole buffer."
                  '("QA9 .C3,alpha" "QA76 .B2,beta" "QA76.5 .A1,gamma"))))
 
 (ert-deftest callnum-test/sort-region/sudoc-end-to-end ()
-  "`callnum-sudoc-sort-region' reorders lines by SuDoc order, text intact."
+  "`callnum-sudoc-sort-region' reorders lines by SuDoc order, text intact.
+
+The first line carries a leading space, which makes the `bol'-anchored
+SuDoc regex fail to match: without cleaning its key is empty and it would
+sort to the very top.  Asserting it lands LAST proves the command routes
+through `callnum-sudoc-sort-key-clean'.  (The detailed ordering of the
+normalization variants is the sample file's job; see the `A 1.2:D 56'
+group in sudoc-sample.txt.)"
   (should (equal (callnum-test--sort-buffer
                   #'callnum-sudoc-sort-region
-                  '("A 93.73:89,x" "A 13.2:T 73/4,y" "A 93.73:76,z")
+                  '(" A 93.73:89,x" "A 13.2:T 73/4,y" "A 93.73:76,z")
                   1)
-                 '("A 13.2:T 73/4,y" "A 93.73:76,z" "A 93.73:89,x"))))
+                 '("A 13.2:T 73/4,y" "A 93.73:76,z" " A 93.73:89,x"))))
 
 (ert-deftest callnum-test/sort-region/dewey-end-to-end ()
   "`callnum-dewey-sort-region' reorders lines by Dewey order, text intact."

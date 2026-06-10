@@ -418,7 +418,7 @@ from [:alpha:] to [:digit:] or [:digit:] to [:alpha:]. Second,
 there should not be a space after the colon.
 
 CALLNUM is a string representing a call number."
-  (let* ((new-callstr (substring callnum 0 1)))
+  (let* ((new-callstr (if (zerop (length callnum)) "" (substring callnum 0 1))))
     (dotimes (x (1- (length callnum)))
       ;; Add spaces when an alpha string changes to digits or when
       ;; digits turn to alphas.
@@ -450,6 +450,20 @@ CALLNUM is a string representing a call number."
   (callnum-pad-concat
    (callnum-named-alist-from-regex callnum callnum-sudoc-rx
 				   callnum-sudoc-alist)))
+
+(defun callnum-sudoc-sort-key-clean (callnum)
+  "Return a sortable padded key for SuDoc CALLNUM after normalizing it.
+
+Unlike `callnum-sudoc-sort-key', this first runs CALLNUM through
+`callnum-sudoc-eliminate-punctuation' and `callnum-sudoc-correct-space',
+so leading whitespace, stray punctuation and FDLP spacing variants (for
+example a space after the colon, or a missing space at an alpha/digit
+boundary) collapse onto the same key.  Without this step the SuDoc regex,
+anchored at `bol', fails to match a leading-space line and returns an
+empty key that sorts before everything."
+  (callnum-sudoc-sort-key
+   (callnum-sudoc-correct-space
+    (callnum-sudoc-eliminate-punctuation callnum))))
 
 (defun callnum-sudoc-make-region-sortable (&optional field-num beg end)
   "Add a padded call number to each line in the region.
@@ -487,11 +501,7 @@ function should work then. You can alternatively change the user
 variable CALLNUM-SEPARATOR to a character that is not in any of
 your fields, assuming that is in fact the separator in your file."
   (interactive "*p\nr")
-  (cl-flet ((pad-callnum (callnum)
-	      (callnum-sudoc-sort-key
-	       (callnum-sudoc-correct-space
-		(callnum-sudoc-eliminate-punctuation callnum)))))
-    (callnum-act-on-region-by-line #'pad-callnum field-num beg end)))
+  (callnum-act-on-region-by-line #'callnum-sudoc-sort-key-clean field-num beg end))
 
 (defun callnum-sudoc-sort-region (&optional field-num beg end)
   "Sort SuDoc call numbers in the region in place, without inserting keys.
@@ -503,9 +513,13 @@ SuDoc sort key using `sort-subr', leaving the buffer text unchanged.
 FIELD-NUM is the field number. A numeric prefix argument specifies in
 which field the call numbers are located. With no prefix argument, it
 assumes field one contains the call number. Interactively, BEG and END
-are the region; with no active region the whole buffer is sorted."
+are the region; with no active region the whole buffer is sorted.
+
+Call numbers are normalized with `callnum-sudoc-sort-key-clean' before
+keying, so leading whitespace and FDLP spacing variants do not affect
+the order.  The buffer text itself is left untouched."
   (interactive "*p\nr")
-  (callnum-sort-region-by-key #'callnum-sudoc-sort-key nil field-num beg end))
+  (callnum-sort-region-by-key #'callnum-sudoc-sort-key-clean nil field-num beg end))
 
 
 ;;; LC functions
