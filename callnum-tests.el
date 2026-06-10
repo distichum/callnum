@@ -289,6 +289,20 @@ have keys EQUAL to that neighbor.  `skip' entries are ignored."
     (should (eq (verdict "Z696 U5 H 1995") 'valid))
     (should (eq (verdict "!!!garbage!!!") 'invalid))))
 
+(ert-deftest callnum-test/sudoc-find-invalid-flags-garbage ()
+  "SuDoc strings the regex cannot match are flagged; real ones are not.
+Stem-only call numbers lack the mandatory colon and are flagged too, by
+design: `callnum-sudoc-find-invalid' surfaces everything that does not
+parse to a class so it can be reviewed."
+  (cl-flet ((verdict (cn)
+              (if (string-empty-p (callnum-sudoc-sort-key-clean cn))
+                  'invalid 'valid)))
+    (should (eq (verdict "A 93.73/2:62") 'valid))
+    (should (eq (verdict "Y 4.EC 7:C 73/7") 'valid))
+    (should (eq (verdict "no call number") 'invalid))
+    (should (eq (verdict "HF1040.7 .U82") 'invalid))   ; LC, not SuDoc
+    (should (eq (verdict "GA 1.36") 'invalid))))        ; stem-only, no colon
+
 ;;; End-to-end tests for the `*-sort-region' commands
 
 ;; Unlike the order tests above, which check the key functions in

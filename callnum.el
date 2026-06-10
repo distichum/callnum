@@ -543,6 +543,33 @@ the order.  The buffer text itself is left untouched."
   (callnum-sort-region-by-key #'callnum-sudoc-sort-key-clean nil field-num beg end))
 
 
+(defun callnum-sudoc-find-invalid (&optional field-num beg end)
+  "Find SuDoc call numbers that callnum.el does not recognize.
+
+A string that `callnum-sudoc-rx' cannot match produces an empty sort
+key and would otherwise sort to the very top of the list, mixed in with
+genuine non-SuDoc data (LC call numbers, free text such as \"no call
+number\", slip-law numbers, and so on).  This command marks every such
+line with INVALID so they can be reviewed, corrected or removed instead
+of inferring them from sort position.  The test runs through
+`callnum-sudoc-sort-key-clean', so FDLP spacing variants and stray
+punctuation are normalized first and do not count as invalid.
+
+This is the SuDoc counterpart to `callnum-lc-find-invalid'.
+
+FIELD-NUM is the field number. A numeric prefix argument specifies in
+which field the call numbers are located. With no prefix argument, it
+assumes field one contains the call number. Interactively, BEG and END
+are the region."
+  (interactive "*p\nr")
+  (cl-flet ((bad-callnum (callnum)
+	      ;; An empty clean key means the SuDoc regex matched nothing.
+	      (if (string-empty-p (callnum-sudoc-sort-key-clean callnum))
+		  "INVALID"
+		"")))
+    (callnum-act-on-region-by-line #'bad-callnum field-num beg end)))
+
+
 ;;; LC functions
 
 (defconst callnum-lc-examples
