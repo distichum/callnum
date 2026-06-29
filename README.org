@@ -32,7 +32,7 @@ Add callnum.el to your load-path and require. Something like
 (require 'callnum)
 #+end_src
 * Making sortable call numbers
-To create a padded call number string, use ~callnum-lc-make-region-sortable~ or ~callnum-sudoc-make-region-sortable~. These functions work on the current line or the active region, if there is one. Unless the user provides a prefix argument, the function assumes the first text on the line is the call number. A prefix argument will cause the function to look in another "field" as separated by ~callnum-separator~, which is set to a comma by default.
+To create a padded call number string, use ~callnum-lc-make-region-sortable~, ~callnum-sudoc-make-region-sortable~, or ~callnum-dewey-make-region-sortable~. These functions work on the current line or the active region, if there is one. Unless the user provides a prefix argument, the function assumes the first text on the line is the call number. A prefix argument will cause the function to look in another "field" as separated by ~callnum-separator~, which is set to a comma by default.
 
 Callnum.el assumes a csv-like file structure but is not complex enough to understand text qualifiers (the quotation marks that encapsulate some fields in a csv file). It will understand any comma as the end of a field. For that reason, it is best to place or move the call number field to the first text on a line. [[https://elpa.gnu.org/packages/csv-mode.html][CSV Mode]] can do this and works very well with callnum.el.
 
@@ -46,9 +46,15 @@ To sort the lines, use Emacs' ~sort-lines~, ~csv-sort-fields~, or some other sor
 
 To delete the padded strings from the beginning of the lines, use ~replace-regexp~ ="^.*,*"= =""= or ~csv-kill-fields~.
 
-Do note that these functions are not perfect. =callnum-lc-make-region-sortable= will cause an error for call numbers without a period separating the classification part from the cutter.
+** Sorting without inserting keys
+If you would rather not insert and then delete the padded strings, use the non-destructive commands ~callnum-lc-sort-region~, ~callnum-sudoc-sort-region~, and ~callnum-dewey-sort-region~. These reorder the lines of the region (or the whole buffer, when no region is active) directly by call number order, leaving the buffer text untouched. They take the same ~field-num~ prefix argument as the =-make-region-sortable= commands. ~callnum-sudoc-sort-region~ normalizes spacing and punctuation before sorting, so it tolerates leading whitespace and FDLP spacing variants.
+
+** Finding call numbers callnum.el cannot parse
+A call number that callnum.el cannot recognize gets an empty or meaningless sort key and would otherwise drift to an extreme of the sort. To locate such lines for correction or removal, use ~callnum-lc-find-invalid~ or ~callnum-sudoc-find-invalid~. Each marks every unrecognized line in the region with =INVALID=. For SuDoc, stem-only numbers (those lacking the mandatory colon) are flagged too, by design.
 * Normalizing call numbers
-There is one function that can help normalize SuDoc call numbers. ~callnum-sudoc-paste-spaced~ corrects some spacing issues in SuDoc call numbers.
+callnum.el can correct some spacing issues in SuDoc call numbers. ~callnum-sudoc-correct-space~ inserts a space at each letter/number boundary and removes a space after the colon, and ~callnum-sudoc-eliminate-punctuation~ collapses separating punctuation and extra spaces. The =-clean= variants apply both before keying: ~callnum-sudoc-make-region-sortable-clean~ inserts a padded key from the normalized call number, and ~callnum-sudoc-sort-region~ uses the same normalization, so leading whitespace and FDLP spacing variants collapse onto the same key.
+
+LC call numbers without a period separating the classification from the cutter are normalized automatically by ~callnum-lc-make-region-sortable~ (and the LC sort-region command), which splice in the missing period before parsing; use ~callnum-lc-find-invalid~ to surface any that still cannot be parsed.
 * Dividing call numbers in callnum.el
 The following two headings describe what callnum.el recognizes as a call number. Unless you plan to edit callnum.el or write your own call number software, you can ignore the following.
 ** LC
@@ -130,17 +136,30 @@ Defining a regular expression that captures all variations in a call number syst
          (group (? ".")) ;; Capture a period.
          (group (** 0 10 digit))))) ;; Capture zero to ten digits.
 #+end_src
-*** Define a function
-The last step to creating a padded call number for your own system is to define an interactive function that you can call on a line or region so you can insert the padded string. In the following function example, you can simply replace the "xyz" strings with the chosen name for your call number system. It should correspond with callnum-xyz-alist and callnum-xyz-rx. See the Dewey versions in the code for an example.
+*** Define the sort-key and command functions
+The last step is to define a sort-key function that turns a call number into its padded string, and then the interactive commands that apply it. Replace the "xyz" strings with the chosen name for your call number system; the names should correspond with callnum-xyz-alist and callnum-xyz-rx. See the Dewey versions in the code for a complete example.
+
+The sort-key function composes the helper ~callnum-named-alist-from-regex~ (which runs the regex and names the parts) with ~callnum-pad-concat~ (which pads them into one string), and upcases the result so call numbers shelve case-insensitively.
+
+#+begin_src emacs-lisp
+  (defun callnum-xyz-sort-key (callnum)
+    "Return a sortable padded key for the XYZ CALLNUM."
+    (upcase
+     (callnum-pad-concat
+      (callnum-named-alist-from-regex callnum callnum-xyz-rx
+                                      callnum-xyz-alist))))
+#+end_src
+
+With the key function in place, the commands are one-liners over ~callnum-act-on-region-by-line~ (insert a padded key) and ~callnum-sort-region-by-key~ (reorder lines in place without inserting keys).
 
 #+begin_src emacs-lisp
   (defun callnum-xyz-make-region-sortable (&optional field-num beg end)
-  "Add a padded LC call number to each line in the region."
-  (interactive "*p\nr")
-  (cl-flet ((pad-callnum (callnum)
-	      (callnum-pad-concat
-	       (callnum-named-alist
-		(callnum-regex-result-list callnum callnum-xyz-rx)
-		callnum-xyz-alist))))
-    (callnum--act-on-region-by-line #'pad-callnum field-num beg end)))
+    "Add a padded XYZ call number to each line in the region."
+    (interactive "*p\nr")
+    (callnum-act-on-region-by-line #'callnum-xyz-sort-key field-num beg end))
+
+  (defun callnum-xyz-sort-region (&optional field-num beg end)
+    "Sort XYZ call numbers in the region in place, without inserting keys."
+    (interactive "*p\nr")
+    (callnum-sort-region-by-key #'callnum-xyz-sort-key nil field-num beg end))
 #+end_src

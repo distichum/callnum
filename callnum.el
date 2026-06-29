@@ -5,7 +5,7 @@
 ;; Author: Joshua Lambert <jlambert@missouristate.edu>
 ;; Maintainer: Joshua Lambert <jlambert@missouristate.edu>
 ;; Created: 20 Dec 2024
-;; Version: 0.2
+;; Version: 0.3
 ;; Keywords: tools, convenience, sorting
 ;; URL: https://github.com/distichum/callnum
 ;; Package-Requires: ((emacs "25.2"))
